@@ -1,0 +1,63 @@
+{
+  "version": "1.0",
+  "description": "Evaluation test cases for pptx-creation-editing skill",
+  "tests": [
+    {
+      "id": "create_title_and_image_slide",
+      "description": "Create a new .pptx with a title slide and a content slide containing an embedded image with alt text. Verify slide count, alt text, and notes are correct.",
+      "assertions": [
+        "slide_count == 2",
+        "slides[0].title == 'Quarterly Review'",
+        "slides[1] has a picture shape",
+        "picture alt text == 'A vibrant orange square'",
+        "slides[1].notes == 'This slide contains an embedded image.'",
+        "file is a valid ZIP archive",
+        "file passes validate_pptx()"
+      ]
+    },
+    {
+      "id": "add_speaker_notes",
+      "description": "Open a newly created presentation, add speaker notes to slide index 0 using set_notes(), save, reload, and read back the notes text.",
+      "assertions": [
+        "notes text round-trips exactly",
+        "has_notes_slide == True after set",
+        "notes text == 'Welcome to the presentation. Please hold questions until the end.'",
+        "other slides unaffected (no spurious notes)"
+      ]
+    },
+    {
+      "id": "read_notes_from_poi_fixture",
+      "description": "Open SampleShow.pptx from the Apache POI corpus. Read all speaker notes and verify they match expected content.",
+      "fixture": "SampleShow.pptx",
+      "assertions": [
+        "slide_count == 2",
+        "notes[0] == 'I am the notes of the first slide'",
+        "notes[1] contains 'These are the notes of the 2nd slide'",
+        "read_all_notes() returns list of length 2"
+      ]
+    },
+    {
+      "id": "reorder_slides",
+      "description": "Create a 3-slide deck, move slide at index 2 to position 0, verify new order.",
+      "assertions": [
+        "slide_count == 3 after reorder",
+        "slides[0].title == 'Slide THREE' (was at index 2)",
+        "slides[1].title == 'Slide ONE'  (was at index 0)",
+        "slides[2].title == 'Slide TWO'  (was at index 1)",
+        "file passes validate_pptx()"
+      ]
+    },
+    {
+      "id": "round_trip_image_replace_and_notes",
+      "description": "Open shapes.pptx from the POI corpus. On slide 0: replace the first picture with a new image (blue PNG). Add speaker notes 'Round-trip test complete.'. Save, reload, validate.",
+      "fixture": "shapes.pptx",
+      "assertions": [
+        "replaced image is present in media/ of the ZIP",
+        "blip r:embed points to new rId",
+        "notes text == 'Round-trip test complete.' on slide 0",
+        "slide count unchanged",
+        "file passes validate_pptx()"
+      ]
+    }
+  ]
+}

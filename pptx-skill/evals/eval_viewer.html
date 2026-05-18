@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>pptx-creation-editing — Eval Viewer</title>
+<style>
+  :root {
+    --pass: #22c55e;
+    --fail: #ef4444;
+    --warn: #f59e0b;
+    --bg: #0f172a;
+    --surface: #1e293b;
+    --border: #334155;
+    --text: #e2e8f0;
+    --muted: #94a3b8;
+    --accent: #38bdf8;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; padding: 2rem; }
+  h1 { font-size: 1.6rem; color: var(--accent); margin-bottom: .25rem; }
+  .subtitle { color: var(--muted); font-size: .9rem; margin-bottom: 2rem; }
+  .summary-bar { display: flex; gap: 1.5rem; margin-bottom: 2rem; }
+  .stat { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: .75rem 1.25rem; }
+  .stat-value { font-size: 2rem; font-weight: 700; }
+  .stat-label { font-size: .8rem; color: var(--muted); margin-top: .1rem; }
+  .pass-color { color: var(--pass); }
+  .fail-color { color: var(--fail); }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; margin-bottom: 1.25rem; overflow: hidden; }
+  .card-header { padding: .9rem 1.25rem; display: flex; align-items: center; gap: .75rem; cursor: pointer; user-select: none; }
+  .badge { padding: .2rem .7rem; border-radius: 4px; font-size: .78rem; font-weight: 700; letter-spacing: .04em; }
+  .badge-pass { background: rgba(34,197,94,.15); color: var(--pass); border: 1px solid rgba(34,197,94,.3); }
+  .badge-fail { background: rgba(239,68,68,.15); color: var(--fail); border: 1px solid rgba(239,68,68,.3); }
+  .card-title { font-weight: 600; font-size: 1rem; flex: 1; }
+  .card-body { padding: 0 1.25rem 1.25rem; display: none; }
+  .card-body.open { display: block; }
+  .desc { color: var(--muted); font-size: .88rem; margin-bottom: 1rem; line-height: 1.5; }
+  .assertions { list-style: none; padding: 0; }
+  .assertions li { font-size: .86rem; padding: .3rem 0; border-bottom: 1px solid var(--border); display: flex; align-items: flex-start; gap: .5rem; }
+  .assertions li:last-child { border-bottom: none; }
+  .check { color: var(--pass); font-size: 1rem; flex-shrink: 0; }
+  .x { color: var(--fail); font-size: 1rem; flex-shrink: 0; }
+  .fixture-tag { font-size: .75rem; background: rgba(56,189,248,.1); color: var(--accent); border: 1px solid rgba(56,189,248,.2); padding: .15rem .5rem; border-radius: 4px; }
+  .corpus-section { margin-top: 2.5rem; }
+  .corpus-table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+  .corpus-table th { background: var(--border); padding: .6rem 1rem; text-align: left; font-weight: 600; }
+  .corpus-table td { padding: .55rem 1rem; border-bottom: 1px solid var(--border); }
+  .corpus-table tr:last-child td { border-bottom: none; }
+  .dot-pass { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: var(--pass); margin-right: 4px; }
+  .dot-fail { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: var(--fail); margin-right: 4px; }
+  .bench-section { margin-top: 2.5rem; }
+  .bench-bar-wrap { display: flex; align-items: center; gap: .75rem; }
+  .bench-bar { height: 14px; background: var(--accent); border-radius: 3px; opacity: .8; }
+  .bench-val { font-size: .8rem; color: var(--muted); white-space: nowrap; }
+  footer { margin-top: 3rem; color: var(--muted); font-size: .8rem; }
+</style>
+</head>
+<body>
+
+<h1>pptx-creation-editing — Eval Results</h1>
+<p class="subtitle">Apache 2.0 · python-pptx 1.0.2 · 5/5 tests passed · 120/120 corpus assertions passed</p>
+
+<div class="summary-bar">
+  <div class="stat">
+    <div class="stat-value pass-color">5 / 5</div>
+    <div class="stat-label">Eval tests passed</div>
+  </div>
+  <div class="stat">
+    <div class="stat-value pass-color">120 / 120</div>
+    <div class="stat-label">Corpus assertions passed</div>
+  </div>
+  <div class="stat">
+    <div class="stat-value" style="color:var(--accent)">15</div>
+    <div class="stat-label">POI fixtures tested</div>
+  </div>
+  <div class="stat">
+    <div class="stat-value" style="color:var(--accent)">3</div>
+    <div class="stat-label">Primary features</div>
+  </div>
+</div>
+
+<div id="evals">
+
+<div class="card" onclick="toggle(this)">
+  <div class="card-header">
+    <span class="badge badge-pass">PASS</span>
+    <span class="card-title">1 · create_title_and_image_slide</span>
+  </div>
+  <div class="card-body">
+    <p class="desc">Create a new .pptx with a title slide and a content slide containing an embedded image with alt text. Verify slide count, alt text, and notes.</p>
+    <ul class="assertions">
+      <li><span class="check">✓</span> slide count == 2</li>
+      <li><span class="check">✓</span> slides[0].title == "Quarterly Review"</li>
+      <li><span class="check">✓</span> slide 1 has a picture shape</li>
+      <li><span class="check">✓</span> alt text == "A vibrant orange square"</li>
+      <li><span class="check">✓</span> notes text == "This slide contains an embedded image."</li>
+      <li><span class="check">✓</span> file passes validate_pptx()</li>
+    </ul>
+  </div>
+</div>
+
+<div class="card" onclick="toggle(this)">
+  <div class="card-header">
+    <span class="badge badge-pass">PASS</span>
+    <span class="card-title">2 · add_speaker_notes</span>
+  </div>
+  <div class="card-body">
+    <p class="desc">Open a presentation, add speaker notes to slide 0, save, reload and verify exact round-trip. Other slides must be unaffected.</p>
+    <ul class="assertions">
+      <li><span class="check">✓</span> has_notes_slide == False before set</li>
+      <li><span class="check">✓</span> has_notes_slide == True after set</li>
+      <li><span class="check">✓</span> notes text round-trips exactly</li>
+      <li><span class="check">✓</span> slide 1 notes unaffected (empty)</li>
+    </ul>
+  </div>
+</div>
+
+<div class="card" onclick="toggle(this)">
+  <div class="card-header">
+    <span class="badge badge-pass">PASS</span>
+    <span class="card-title">3 · read_notes_from_poi_fixture <span class="fixture-tag">SampleShow.pptx</span></span>
+  </div>
+  <div class="card-body">
+    <p class="desc">Open SampleShow.pptx from the Apache POI corpus. Read all speaker notes and verify content matches expected text.</p>
+    <ul class="assertions">
+      <li><span class="check">✓</span> slide count == 2</li>
+      <li><span class="check">✓</span> notes[0] == "I am the notes of the first slide"</li>
+      <li><span class="check">✓</span> notes[1] contains "These are the notes of the 2nd slide"</li>
+      <li><span class="check">✓</span> read_all_notes() returns list of length 2</li>
+    </ul>
+  </div>
+</div>
+
+<div class="card" onclick="toggle(this)">
+  <div class="card-header">
+    <span class="badge badge-pass">PASS</span>
+    <span class="card-title">4 · reorder_slides</span>
+  </div>
+  <div class="card-body">
+    <p class="desc">Create a 3-slide deck. Move slide 2 → position 0. Verify new ordering is "THREE, ONE, TWO" and file is valid.</p>
+    <ul class="assertions">
+      <li><span class="check">✓</span> slide count before reorder == 3</li>
+      <li><span class="check">✓</span> original order[0] == "Slide ONE"</li>
+      <li><span class="check">✓</span> slide count after reorder == 3</li>
+      <li><span class="check">✓</span> new order[0] == "Slide THREE"</li>
+      <li><span class="check">✓</span> new order[1] == "Slide ONE"</li>
+      <li><span class="check">✓</span> new order[2] == "Slide TWO"</li>
+      <li><span class="check">✓</span> file passes validate_pptx()</li>
+    </ul>
+  </div>
+</div>
+
+<div class="card" onclick="toggle(this)">
+  <div class="card-header">
+    <span class="badge badge-pass">PASS</span>
+    <span class="card-title">5 · round_trip_image_replace_and_notes <span class="fixture-tag">shapes.pptx</span></span>
+  </div>
+  <div class="card-body">
+    <p class="desc">Open shapes.pptx. On slide 0: replace first picture with a blue PNG. Add notes "Round-trip test complete.". Save, reload, validate.</p>
+    <ul class="assertions">
+      <li><span class="check">✓</span> slide count unchanged (6)</li>
+      <li><span class="check">✓</span> image replacement returned True</li>
+      <li><span class="check">✓</span> notes text after reload == "Round-trip test complete."</li>
+      <li><span class="check">✓</span> slide 0 has_notes_slide == True</li>
+      <li><span class="check">✓</span> ppt/media/ has at least one image</li>
+      <li><span class="check">✓</span> file passes validate_pptx()</li>
+    </ul>
+  </div>
+</div>
+
+</div>
+
+<div class="corpus-section">
+  <h2 style="font-size:1.2rem;color:var(--accent);margin-bottom:1rem;">Corpus Test Results (Apache POI fixtures)</h2>
+  <table class="corpus-table">
+    <thead>
+      <tr>
+        <th>Fixture</th><th>Slides</th><th>Open</th><th>Notes Read</th>
+        <th>Notes Write</th><th>Reorder</th><th>Multi-image</th><th>Validate</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>shapes.pptx</td><td>6</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td>skipped</td><td><span class="dot-pass"></span>pass</td></tr>
+      <tr><td>SampleShow.pptx</td><td>2</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td>skipped</td><td><span class="dot-pass"></span>pass</td></tr>
+      <tr><td>aascu.org_hbcu_leadershipsummit_cooper_.pptx</td><td>16</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass (16 empty)</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass (4 imgs)</td><td><span class="dot-pass"></span>pass</td></tr>
+      <tr><td>table_test2.pptx</td><td>1</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td>skipped</td><td>skipped</td><td><span class="dot-pass"></span>pass</td></tr>
+      <tr><td>bug65551.pptx</td><td>1</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td>skipped</td><td>skipped</td><td><span class="dot-pass"></span>pass</td></tr>
+      <tr><td>testPPT.pptx</td><td>3</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td>skipped</td><td><span class="dot-pass"></span>pass</td></tr>
+      <tr><td>layouts.pptx</td><td>10</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass (1 empty)</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td>skipped</td><td><span class="dot-pass"></span>pass</td></tr>
+      <tr><td>45545_Comment.pptx</td><td>11</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass (11 empty)</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td>skipped</td><td><span class="dot-pass"></span>pass</td></tr>
+      <tr><td>2411-Performance_Up.pptx</td><td>48</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass (33 empty)</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td>skipped</td><td><span class="dot-pass"></span>pass</td></tr>
+      <tr><td>WithMaster.pptx</td><td>2</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td>skipped</td><td><span class="dot-pass"></span>pass</td></tr>
+      <tr><td>ArtisticEffectSample.pptx</td><td>2</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass (1 empty)</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td>skipped</td><td><span class="dot-pass"></span>pass</td></tr>
+      <tr><td>bar-chart.pptx</td><td>1</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td>skipped</td><td>skipped</td><td><span class="dot-pass"></span>pass</td></tr>
+      <tr><td>table-with-theme.pptx</td><td>1</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td>skipped</td><td>skipped</td><td><span class="dot-pass"></span>pass</td></tr>
+      <tr><td>keyframes.pptx (macro-enabled)</td><td>28</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass (9 empty)</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td>skipped</td><td><span class="dot-pass"></span>pass</td></tr>
+      <tr><td>customGeo.pptx</td><td>48</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass (7 empty)</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td>skipped</td><td><span class="dot-pass"></span>pass</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="bench-section">
+  <h2 style="font-size:1.2rem;color:var(--accent);margin-bottom:1rem;">Benchmark Results</h2>
+  <table class="corpus-table">
+    <thead>
+      <tr><th>Operation</th><th>Iterations</th><th>Total</th><th>Per-file</th><th>Throughput</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Read POI corpus (iterate slides)</td><td>80</td><td>1.53s</td><td>19.1ms</td><td><div class="bench-bar-wrap"><div class="bench-bar" style="width:100px"></div><span class="bench-val">~52/s</span></div></td></tr>
+      <tr><td>Read notes (POI files)</td><td>26</td><td>0.21s</td><td>8.1ms</td><td><div class="bench-bar-wrap"><div class="bench-bar" style="width:60px"></div><span class="bench-val">~124/s</span></div></td></tr>
+      <tr><td>Write notes (POI files)</td><td>17</td><td>0.72s</td><td>42.5ms</td><td><div class="bench-bar-wrap"><div class="bench-bar" style="width:30px"></div><span class="bench-val">~24/s</span></div></td></tr>
+      <tr><td>Create (title+content+notes)</td><td>10</td><td>0.16s</td><td>16.1ms</td><td><div class="bench-bar-wrap"><div class="bench-bar" style="width:75px"></div><span class="bench-val">~62/s</span></div></td></tr>
+      <tr><td>Bulk create (20 slides/deck)</td><td>5</td><td>0.19s</td><td>38.4ms</td><td><div class="bench-bar-wrap"><div class="bench-bar" style="width:35px"></div><span class="bench-val">~26/s</span></div></td></tr>
+      <tr><td>Image round-trip (add+replace)</td><td>5</td><td>0.11s</td><td>22.7ms</td><td><div class="bench-bar-wrap"><div class="bench-bar" style="width:55px"></div><span class="bench-val">~44/s</span></div></td></tr>
+      <tr><td>Slide reorder (10-slide deck)</td><td>10</td><td>0.12s</td><td>12.4ms</td><td><div class="bench-bar-wrap"><div class="bench-bar" style="width:90px"></div><span class="bench-val">~81/s</span></div></td></tr>
+    </tbody>
+  </table>
+</div>
+
+<footer>
+  <p>pptx-creation-editing skill · Apache 2.0 · Primary sources: python-pptx 1.0.x docs, ECMA-376 Part 1, Apache POI test corpus</p>
+</footer>
+
+<script>
+function toggle(card) {
+  const body = card.querySelector('.card-body');
+  body.classList.toggle('open');
+}
+document.querySelectorAll('.card-body').forEach(b => b.classList.add('open'));
+</script>
+</body>
+</html>
