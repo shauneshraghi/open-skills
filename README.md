@@ -7,19 +7,15 @@ Open-source (Apache 2.0) agent skills for document creation and editing.
 Install dependencies:
 
 ```bash
-pip install python-pptx python-docx lxml pillow
+pip install python-pptx python-docx openpyxl lxml pillow
 ```
 
-Create a demo Word document:
+Create demo files:
 
 ```bash
 python docx-creation-editing/scripts/create_docx.py --out demo.docx
-```
-
-Create a demo PowerPoint deck:
-
-```bash
 python pptx-creation-editing/scripts/create_pptx.py --out demo.pptx
+python xlsx-creation-editing/scripts/create_xlsx.py --out demo.xlsx
 ```
 
 Validate files:
@@ -27,13 +23,15 @@ Validate files:
 ```bash
 python docx-creation-editing/scripts/validate_docx.py --file demo.docx
 python pptx-creation-editing/scripts/validate_pptx.py --file demo.pptx
+python xlsx-creation-editing/scripts/validate_xlsx.py --file demo.xlsx
 ```
 
 Run the eval suites (requires POI test corpus):
 
 ```bash
-POI_PATH=/path/to/poi/test-data/document python docx-creation-editing/scripts/comprehensive_test.py
-POI_PATH=/path/to/poi/test-data/slideshow python pptx-creation-editing/evals/eval_runner.py
+POI_PATH=/path/to/poi/test-data/document   python docx-creation-editing/scripts/comprehensive_test.py
+POI_PATH=/path/to/poi/test-data/slideshow  python pptx-creation-editing/evals/eval_runner.py
+POI_PATH=/path/to/poi/test-data/spreadsheet python xlsx-creation-editing/evals/eval_runner.py
 ```
 
 ## Skills
@@ -83,6 +81,37 @@ See [`pptx-creation-editing/SKILL.md`](pptx-creation-editing/SKILL.md) for full 
 
 ---
 
+### `xlsx-creation-editing`
+
+Create, edit, and validate Excel (`.xlsx`) spreadsheets.
+
+**Features**
+- **Workbook & sheets** — create workbooks; add, rename, delete, and reorder worksheets using `wb.move_sheet()` (lxml fallback for edge cases)
+- **Cells, ranges & formatting** — write single cells and 2-D ranges; formula strings (starting with `=`); apply Font, PatternFill, Border, Alignment, and number formats; merge/unmerge ranges
+- **Images & alt text** — embed images with openpyxl; inject `<xdr:cNvPr descr="…">` alt text via a post-save ZIP patch using lxml (ECMA-376 §20.5.2.8); read alt text back from drawing XML
+- **Validation** — ZIP integrity, required OPC parts, SpreadsheetML content type, XML well-formedness, relationship targets
+
+```bash
+# Create a demo workbook
+python xlsx-creation-editing/scripts/create_xlsx.py --out demo.xlsx
+
+# Read all cell values
+python xlsx-creation-editing/scripts/edit_xlsx.py read demo.xlsx
+
+# Validate
+python xlsx-creation-editing/scripts/validate_xlsx.py --file demo.xlsx
+```
+
+| Test suite | Result |
+|------------|--------|
+| Eval tests | 5 / 5 passed |
+| POI corpus assertions | 120 / 120 passed |
+| Fixtures tested | 15 |
+
+See [`xlsx-creation-editing/SKILL.md`](xlsx-creation-editing/SKILL.md) for full API reference.
+
+---
+
 ## Structure
 
 ```
@@ -100,7 +129,14 @@ open-skills/
 │   ├── references/
 │   ├── scripts/           # create_pptx.py, edit_pptx.py, validate_pptx.py, benchmark.py
 │   └── evals/             # evals.json, eval_runner.py, corpus_test.py, eval_viewer.html
-└── pptx-creation-editing.skill
+├── pptx-creation-editing.skill
+├── xlsx-creation-editing/
+│   ├── SKILL.md
+│   ├── LICENSE.txt
+│   ├── references/        # openpyxl.md, ooxml-xlsx.md
+│   ├── scripts/           # create_xlsx.py, edit_xlsx.py, validate_xlsx.py, benchmark.py
+│   └── evals/             # evals.json, eval_runner.py, corpus_test.py, eval_viewer.html
+└── xlsx-creation-editing.skill
 ```
 
 ## License
