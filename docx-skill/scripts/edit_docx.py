@@ -139,15 +139,25 @@ def delete_comment(doc: Document, comment_id: int) -> bool:
                     run_parent.remove(run_el)
             found = True
 
-    # Remove the w:comment element from comments.xml
+    # Remove the w:comment element from comments.xml.
+    # python-docx 1.x exposes the comments part as doc.part._comments_part (private).
+    # The public doc.comments._comments_elm is an equivalent route that avoids the
+    # private attribute. We try both so the code works across minor version changes.
+    comments_elm = None
     try:
-        comments_elm = doc.part.comments_part.element
+        comments_elm = doc.part._comments_part.element
+    except AttributeError:
+        pass
+    if comments_elm is None:
+        try:
+            comments_elm = doc.comments._comments_elm
+        except AttributeError:
+            pass
+    if comments_elm is not None:
         for c_el in list(comments_elm.findall(qn("w:comment"))):
             if c_el.get(qn("w:id")) == cid:
                 comments_elm.remove(c_el)
                 found = True
-    except AttributeError:
-        pass  # comments part may not exist
 
     return found
 
@@ -305,15 +315,18 @@ def reject_all_changes(doc: Document) -> int:
     count = 0
 
     # Reject deletions: restore the original text by converting delText→t
+    # Also convert delInstrText→instrText to restore deleted hyperlink/field instructions.
+    # Source: ECMA-376 §17.3.3.10 (w:delInstrText) vs §17.3.3.23 (w:instrText)
     for del_el in list(body.iter(f"{{{_W}}}del")):
         parent = del_el.getparent()
         if parent is None:
             continue
         idx = list(parent).index(del_el)
         for r_el in list(del_el):
-            # Convert w:delText children to w:t
             for del_text in r_el.findall(f"{{{_W}}}delText"):
                 del_text.tag = f"{{{_W}}}t"
+            for del_instr in r_el.findall(f"{{{_W}}}delInstrText"):
+                del_instr.tag = f"{{{_W}}}instrText"
             parent.insert(idx, r_el)
             idx += 1
         parent.remove(del_el)
