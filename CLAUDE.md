@@ -6,17 +6,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A collection of open-source (Apache 2.0) agent skills for Office document creation and editing. Each skill is a self-contained directory that gets packaged as a `.skill` ZIP file.
 
-Currently two skills exist:
+Currently three skills exist:
 - **`docx-creation-editing/`** — Word document creation/editing (python-docx + lxml)
 - **`pptx-creation-editing/`** — PowerPoint creation/editing (python-pptx + lxml)
+- **`xlsx-creation-editing/`** — Excel spreadsheet creation/editing (openpyxl + lxml)
 
 ## Running tests
 
-Both skills use the Apache POI test corpus. Set `POI_PATH` to the corpus directory:
+All skills use the Apache POI test corpus. Set `POI_PATH` to the corpus directory:
 
 ```bash
-export POI_PATH=/home/user/poi/test-data/document    # docx
-export POI_PATH=/home/user/poi/test-data/slideshow   # pptx
+export POI_PATH=/home/user/poi/test-data/document      # docx
+export POI_PATH=/home/user/poi/test-data/slideshow     # pptx
+export POI_PATH=/home/user/poi/test-data/spreadsheet   # xlsx
 ```
 
 **docx-creation-editing — comprehensive test suite:**
@@ -43,10 +45,29 @@ from evals.eval_runner import test_reorder_slides
 r = test_reorder_slides(); print(r.passed, r.failures)
 ```
 
-**Benchmarks** (both skills):
+**xlsx-creation-editing — 5 targeted eval tests:**
+```bash
+cd xlsx-creation-editing
+POI_PATH=/home/user/poi/test-data/spreadsheet python evals/eval_runner.py
+```
+
+**xlsx-creation-editing — 120 corpus assertions across 15 fixtures:**
+```bash
+POI_PATH=/home/user/poi/test-data/spreadsheet python evals/corpus_test.py
+```
+
+**Run a single xlsx eval by calling the function directly:**
+```python
+import sys; sys.path.insert(0, 'xlsx-creation-editing')
+from evals.eval_runner import test_embed_image_with_alt_text
+r = test_embed_image_with_alt_text(); print(r.passed, r.failures)
+```
+
+**Benchmarks** (all skills):
 ```bash
 POI_PATH=... python docx-creation-editing/scripts/benchmark.py
 POI_PATH=... python pptx-creation-editing/scripts/benchmark.py --quick
+POI_PATH=/home/user/poi/test-data/spreadsheet python xlsx-creation-editing/scripts/benchmark.py --quick
 ```
 
 ## Packaging a skill
@@ -93,7 +114,7 @@ with zipfile.ZipFile('pptx-creation-editing.skill', 'w', zipfile.ZIP_DEFLATED) a
 - All file paths use `pathlib.Path`. Temp output uses `tempfile.mkdtemp()`. Never hardcode `/tmp/` or `/home/user/`.
 - `POI_PATH` env var controls the corpus location; scripts fall back to a relative default (`../../poi/test-data/...`).
 
-### Where python-pptx/python-docx ends and lxml begins
+### Where the primary library ends and lxml begins
 
 Each `edit_*.py` script documents this boundary. Key lxml-only operations:
 
@@ -106,6 +127,8 @@ Each `edit_*.py` script documents this boundary. Key lxml-only operations:
 | Anchored (floating) images in docx | python-docx only exposes inline shapes |
 | Comment deletion (docx) | Must remove XML triplet + `w:comment` entry via lxml |
 | Track changes (docx) | Construct `w:ins`/`w:del` wrappers; no python-docx API |
+| Image alt text (xlsx) | `<xdr:cNvPr descr="…">` — no openpyxl setter; post-save ZIP patch |
+| Sheet reorder fallback (xlsx) | Manipulate `<workbook><sheets>` child order if `move_sheet()` absent |
 
 ### Adding a new skill
 
@@ -119,7 +142,7 @@ Document every lxml decision with an ECMA-376 section reference in the docstring
 ## Dependencies
 
 ```bash
-pip install python-pptx python-docx lxml pillow
+pip install python-pptx python-docx openpyxl lxml pillow
 ```
 
 No `pyproject.toml` or `requirements.txt` yet — dependencies are listed in each `SKILL.md` frontmatter.
