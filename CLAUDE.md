@@ -15,8 +15,14 @@ Currently two skills exist:
 Both skills use the Apache POI test corpus. Set `POI_PATH` to the corpus directory:
 
 ```bash
-export POI_PATH=/home/user/poi/test-data/slideshow   # pptx
 export POI_PATH=/home/user/poi/test-data/document    # docx
+export POI_PATH=/home/user/poi/test-data/slideshow   # pptx
+```
+
+**docx-creation-editing — comprehensive test suite:**
+```bash
+cd docx-creation-editing
+python scripts/comprehensive_test.py
 ```
 
 **pptx-creation-editing — 5 targeted eval tests:**
@@ -30,12 +36,6 @@ POI_PATH=... python evals/eval_runner.py
 POI_PATH=... python evals/corpus_test.py
 ```
 
-**docx-creation-editing — comprehensive test suite:**
-```bash
-cd docx-creation-editing
-python scripts/comprehensive_test.py
-```
-
 **Run a single pptx eval by calling the function directly:**
 ```python
 import sys; sys.path.insert(0, 'pptx-creation-editing')
@@ -45,8 +45,8 @@ r = test_reorder_slides(); print(r.passed, r.failures)
 
 **Benchmarks** (both skills):
 ```bash
-POI_PATH=... python pptx-creation-editing/scripts/benchmark.py --quick
 POI_PATH=... python docx-creation-editing/scripts/benchmark.py
+POI_PATH=... python pptx-creation-editing/scripts/benchmark.py --quick
 ```
 
 ## Packaging a skill
@@ -55,7 +55,7 @@ POI_PATH=... python docx-creation-editing/scripts/benchmark.py
 python3 -c "
 import zipfile
 from pathlib import Path
-skill_dir = Path('pptx-creation-editing')  # or docx-creation-editing
+skill_dir = Path('docx-creation-editing')  # or pptx-creation-editing
 with zipfile.ZipFile('pptx-creation-editing.skill', 'w', zipfile.ZIP_DEFLATED) as zf:
     for f in sorted(skill_dir.rglob('*')):
         if f.is_file() and '__pycache__' not in str(f):

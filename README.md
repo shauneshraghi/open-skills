@@ -2,7 +2,55 @@
 
 Open-source (Apache 2.0) agent skills for document creation and editing.
 
+## Getting Started
+
+Install dependencies:
+
+```bash
+pip install python-pptx python-docx lxml pillow
+```
+
+Create a demo Word document:
+
+```bash
+python docx-creation-editing/scripts/create_docx.py --out demo.docx
+```
+
+Create a demo PowerPoint deck:
+
+```bash
+python pptx-creation-editing/scripts/create_pptx.py --out demo.pptx
+```
+
+Validate files:
+
+```bash
+python docx-creation-editing/scripts/validate_docx.py --file demo.docx
+python pptx-creation-editing/scripts/validate_pptx.py --file demo.pptx
+```
+
+Run the eval suites (requires POI test corpus):
+
+```bash
+POI_PATH=/path/to/poi/test-data/document python docx-creation-editing/scripts/comprehensive_test.py
+POI_PATH=/path/to/poi/test-data/slideshow python pptx-creation-editing/evals/eval_runner.py
+```
+
 ## Skills
+
+### `docx-creation-editing`
+
+Create and edit Word (`.docx`) documents.
+
+**Features**
+- **Documents** — create, edit, validate, and save `.docx` files
+- **Paragraphs** — add, replace, and format text using python-docx and direct XML when needed
+- **Tables & images** — build tables, insert pictures, and preserve relationships
+- **Validation** — ZIP integrity, required OPC parts, XML well-formedness, broken relationships
+
+See [`docx-creation-editing/`](docx-creation-editing/) for source and [`docx-creation-editing.skill`](docx-creation-editing.skill) for the packaged artifact.
+
+---
 
 ### `pptx-creation-editing`
 
@@ -15,8 +63,6 @@ Create, edit, and validate PowerPoint (`.pptx`) files.
 - **Validation** — ZIP integrity, required OPC parts, XML well-formedness, relationship targets
 
 ```bash
-pip install python-pptx lxml pillow
-
 # Create a demo deck
 python pptx-creation-editing/scripts/create_pptx.py --out demo.pptx
 
@@ -25,9 +71,6 @@ python pptx-creation-editing/scripts/edit_pptx.py set-notes deck.pptx 0 "My spea
 
 # Validate
 python pptx-creation-editing/scripts/validate_pptx.py --file deck.pptx
-
-# Run evals (requires POI test corpus)
-POI_PATH=/path/to/poi/test-data/slideshow python pptx-creation-editing/evals/eval_runner.py
 ```
 
 | Test suite | Result |
@@ -40,27 +83,24 @@ See [`pptx-creation-editing/SKILL.md`](pptx-creation-editing/SKILL.md) for full 
 
 ---
 
-### `docx-creation-editing`
-
-Create and edit Word (`.docx`) documents.
-
-See [`docx-creation-editing/`](docx-creation-editing/) for source and [`docx-creation-editing.skill`](docx-creation-editing.skill) for the packaged artifact.
-
----
-
 ## Structure
 
 ```
 open-skills/
-├── pptx-creation-editing/           # pptx-creation-editing source
+├── docx-creation-editing/
 │   ├── SKILL.md
 │   ├── LICENSE.txt
 │   ├── references/        # API and OOXML reference docs
+│   ├── scripts/           # create_docx.py, edit_docx.py, validate_docx.py, benchmark.py
+│   └── evals/             # evals.json, comprehensive_test.py, eval_viewer.html
+├── docx-creation-editing.skill
+├── pptx-creation-editing/
+│   ├── SKILL.md
+│   ├── LICENSE.txt
+│   ├── references/
 │   ├── scripts/           # create_pptx.py, edit_pptx.py, validate_pptx.py, benchmark.py
 │   └── evals/             # evals.json, eval_runner.py, corpus_test.py, eval_viewer.html
-├── pptx-creation-editing.skill   # packaged ZIP artifact
-├── docx-creation-editing/
-└── docx-creation-editing.skill
+└── pptx-creation-editing.skill
 ```
 
 ## License
