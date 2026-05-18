@@ -7,8 +7,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 A collection of open-source (Apache 2.0) agent skills for Office document creation and editing. Each skill is a self-contained directory that gets packaged as a `.skill` ZIP file.
 
 Currently two skills exist:
-- **`docx-skill/`** — Word document creation/editing (python-docx + lxml)
-- **`pptx-skill/`** — PowerPoint creation/editing (python-pptx + lxml)
+- **`docx-creation-editing/`** — Word document creation/editing (python-docx + lxml)
+- **`pptx-creation-editing/`** — PowerPoint creation/editing (python-pptx + lxml)
 
 ## Running tests
 
@@ -19,34 +19,34 @@ export POI_PATH=/home/user/poi/test-data/slideshow   # pptx
 export POI_PATH=/home/user/poi/test-data/document    # docx
 ```
 
-**pptx-skill — 5 targeted eval tests:**
+**pptx-creation-editing — 5 targeted eval tests:**
 ```bash
-cd pptx-skill
+cd pptx-creation-editing
 POI_PATH=... python evals/eval_runner.py
 ```
 
-**pptx-skill — 120 corpus assertions across 15 fixtures:**
+**pptx-creation-editing — 120 corpus assertions across 15 fixtures:**
 ```bash
 POI_PATH=... python evals/corpus_test.py
 ```
 
-**docx-skill — comprehensive test suite:**
+**docx-creation-editing — comprehensive test suite:**
 ```bash
-cd docx-skill
+cd docx-creation-editing
 python scripts/comprehensive_test.py
 ```
 
 **Run a single pptx eval by calling the function directly:**
 ```python
-import sys; sys.path.insert(0, 'pptx-skill')
+import sys; sys.path.insert(0, 'pptx-creation-editing')
 from evals.eval_runner import test_reorder_slides
 r = test_reorder_slides(); print(r.passed, r.failures)
 ```
 
 **Benchmarks** (both skills):
 ```bash
-POI_PATH=... python pptx-skill/scripts/benchmark.py --quick
-POI_PATH=... python docx-skill/scripts/benchmark.py
+POI_PATH=... python pptx-creation-editing/scripts/benchmark.py --quick
+POI_PATH=... python docx-creation-editing/scripts/benchmark.py
 ```
 
 ## Packaging a skill
@@ -55,7 +55,7 @@ POI_PATH=... python docx-skill/scripts/benchmark.py
 python3 -c "
 import zipfile
 from pathlib import Path
-skill_dir = Path('pptx-skill')  # or docx-skill
+skill_dir = Path('pptx-creation-editing')  # or docx-creation-editing
 with zipfile.ZipFile('pptx-creation-editing.skill', 'w', zipfile.ZIP_DEFLATED) as zf:
     for f in sorted(skill_dir.rglob('*')):
         if f.is_file() and '__pycache__' not in str(f):
@@ -68,7 +68,7 @@ with zipfile.ZipFile('pptx-creation-editing.skill', 'w', zipfile.ZIP_DEFLATED) a
 ### Skill layout (same pattern for both skills)
 
 ```
-{skill}-skill/
+{skill}-creation-editing/
 ├── SKILL.md            YAML frontmatter (name, description, license, version, deps) + feature tables
 ├── LICENSE.txt         Apache 2.0
 ├── references/

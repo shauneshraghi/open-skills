@@ -268,7 +268,7 @@ def save(prs: Presentation, path: str | Path) -> Path:
 
 def _build_demo(out_path: Path, image_path: Path | None = None) -> None:
     prs = create_presentation()
-    add_title_slide(prs, "Demo Presentation", "Created with pptx-skill")
+    add_title_slide(prs, "Demo Presentation", "Created with pptx-creation-editing")
     s2 = add_content_slide(prs, "Content Slide", "Bullet point text goes here.")
     set_notes(s2, "These are the speaker notes for slide 2.")
     if image_path and image_path.exists():

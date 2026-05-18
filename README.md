@@ -18,16 +18,16 @@ Create, edit, and validate PowerPoint (`.pptx`) files.
 pip install python-pptx lxml pillow
 
 # Create a demo deck
-python pptx-skill/scripts/create_pptx.py --out demo.pptx
+python pptx-creation-editing/scripts/create_pptx.py --out demo.pptx
 
 # Edit: set notes on slide 0
-python pptx-skill/scripts/edit_pptx.py set-notes deck.pptx 0 "My speaker note"
+python pptx-creation-editing/scripts/edit_pptx.py set-notes deck.pptx 0 "My speaker note"
 
 # Validate
-python pptx-skill/scripts/validate_pptx.py --file deck.pptx
+python pptx-creation-editing/scripts/validate_pptx.py --file deck.pptx
 
 # Run evals (requires POI test corpus)
-POI_PATH=/path/to/poi/test-data/slideshow python pptx-skill/evals/eval_runner.py
+POI_PATH=/path/to/poi/test-data/slideshow python pptx-creation-editing/evals/eval_runner.py
 ```
 
 | Test suite | Result |
@@ -36,7 +36,7 @@ POI_PATH=/path/to/poi/test-data/slideshow python pptx-skill/evals/eval_runner.py
 | POI corpus assertions | 120 / 120 passed |
 | Fixtures tested | 15 |
 
-See [`pptx-skill/SKILL.md`](pptx-skill/SKILL.md) for full API reference.
+See [`pptx-creation-editing/SKILL.md`](pptx-creation-editing/SKILL.md) for full API reference.
 
 ---
 
@@ -44,7 +44,7 @@ See [`pptx-skill/SKILL.md`](pptx-skill/SKILL.md) for full API reference.
 
 Create and edit Word (`.docx`) documents.
 
-See [`docx-skill/`](docx-skill/) for source and [`docx-creation-editing.skill`](docx-creation-editing.skill) for the packaged artifact.
+See [`docx-creation-editing/`](docx-creation-editing/) for source and [`docx-creation-editing.skill`](docx-creation-editing.skill) for the packaged artifact.
 
 ---
 
@@ -52,14 +52,14 @@ See [`docx-skill/`](docx-skill/) for source and [`docx-creation-editing.skill`](
 
 ```
 open-skills/
-├── pptx-skill/           # pptx-creation-editing source
+├── pptx-creation-editing/           # pptx-creation-editing source
 │   ├── SKILL.md
 │   ├── LICENSE.txt
 │   ├── references/        # API and OOXML reference docs
 │   ├── scripts/           # create_pptx.py, edit_pptx.py, validate_pptx.py, benchmark.py
 │   └── evals/             # evals.json, eval_runner.py, corpus_test.py, eval_viewer.html
 ├── pptx-creation-editing.skill   # packaged ZIP artifact
-├── docx-skill/
+├── docx-creation-editing/
 └── docx-creation-editing.skill
 ```
 

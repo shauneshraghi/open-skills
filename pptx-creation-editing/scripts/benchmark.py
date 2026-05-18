@@ -1,4 +1,4 @@
-"""Benchmark pptx-skill operations against the Apache POI test corpus.
+"""Benchmark pptx-creation-editing operations against the Apache POI test corpus.
 
 Design:
 - Uses POI_PATH env var (default: /home/user/poi/test-data/slideshow) per the
@@ -176,7 +176,7 @@ def main() -> None:
         "POI_PATH",
         str(Path(__file__).resolve().parents[3] / "poi" / "test-data" / "slideshow"),
     )
-    parser = argparse.ArgumentParser(description="Benchmark pptx-skill operations")
+    parser = argparse.ArgumentParser(description="Benchmark pptx-creation-editing operations")
     parser.add_argument("--poi-path", type=Path, default=Path(default_poi))
     parser.add_argument("--quick", action="store_true", help="Run shorter iterations")
     args = parser.parse_args()
