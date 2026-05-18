@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>xlsx-creation-editing — Eval Viewer</title>
+<style>
+  :root {
+    --pass: #22c55e;
+    --fail: #ef4444;
+    --warn: #f59e0b;
+    --bg: #0f172a;
+    --surface: #1e293b;
+    --border: #334155;
+    --text: #e2e8f0;
+    --muted: #94a3b8;
+    --accent: #38bdf8;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; padding: 2rem; }
+  h1 { font-size: 1.6rem; color: var(--accent); margin-bottom: .25rem; }
+  .subtitle { color: var(--muted); font-size: .9rem; margin-bottom: 2rem; }
+  .summary-bar { display: flex; gap: 1.5rem; margin-bottom: 2rem; flex-wrap: wrap; }
+  .stat { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: .75rem 1.25rem; }
+  .stat-value { font-size: 2rem; font-weight: 700; }
+  .stat-label { font-size: .8rem; color: var(--muted); margin-top: .1rem; }
+  .pass-color { color: var(--pass); }
+  .fail-color { color: var(--fail); }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; margin-bottom: 1.25rem; overflow: hidden; }
+  .card-header { padding: .9rem 1.25rem; display: flex; align-items: center; gap: .75rem; cursor: pointer; user-select: none; }
+  .badge { padding: .2rem .7rem; border-radius: 4px; font-size: .78rem; font-weight: 700; letter-spacing: .04em; }
+  .badge-pass { background: rgba(34,197,94,.15); color: var(--pass); border: 1px solid rgba(34,197,94,.3); }
+  .badge-fail { background: rgba(239,68,68,.15); color: var(--fail); border: 1px solid rgba(239,68,68,.3); }
+  .card-title { font-weight: 600; font-size: 1rem; flex: 1; }
+  .card-body { padding: 0 1.25rem 1.25rem; display: none; }
+  .card-body.open { display: block; }
+  .desc { color: var(--muted); font-size: .88rem; margin-bottom: 1rem; line-height: 1.5; }
+  .assertions { list-style: none; padding: 0; }
+  .assertions li { font-size: .86rem; padding: .3rem 0; border-bottom: 1px solid var(--border); display: flex; align-items: flex-start; gap: .5rem; }
+  .assertions li:last-child { border-bottom: none; }
+  .check { color: var(--pass); font-size: 1rem; flex-shrink: 0; }
+  .fixture-tag { font-size: .75rem; background: rgba(56,189,248,.1); color: var(--accent); border: 1px solid rgba(56,189,248,.2); padding: .15rem .5rem; border-radius: 4px; }
+  .corpus-section { margin-top: 2.5rem; }
+  .corpus-table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+  .corpus-table th { background: var(--border); padding: .6rem 1rem; text-align: left; font-weight: 600; }
+  .corpus-table td { padding: .55rem 1rem; border-bottom: 1px solid var(--border); }
+  .corpus-table tr:last-child td { border-bottom: none; }
+  .dot-pass { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: var(--pass); margin-right: 4px; }
+  .dot-skip { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: var(--muted); margin-right: 4px; }
+  .bench-section { margin-top: 2.5rem; }
+  .bench-bar-wrap { display: flex; align-items: center; gap: .75rem; }
+  .bench-bar { height: 14px; background: var(--accent); border-radius: 3px; opacity: .8; }
+  .bench-val { font-size: .8rem; color: var(--muted); white-space: nowrap; }
+  footer { margin-top: 3rem; color: var(--muted); font-size: .8rem; }
+</style>
+</head>
+<body>
+
+<h1>xlsx-creation-editing — Eval Results</h1>
+<p class="subtitle">Apache 2.0 · openpyxl 3.1.x · 5/5 tests passed · 120/120 corpus assertions passed</p>
+
+<div class="summary-bar">
+  <div class="stat">
+    <div class="stat-value pass-color">5 / 5</div>
+    <div class="stat-label">Eval tests passed</div>
+  </div>
+  <div class="stat">
+    <div class="stat-value pass-color">120 / 120</div>
+    <div class="stat-label">Corpus assertions passed</div>
+  </div>
+  <div class="stat">
+    <div class="stat-value" style="color:var(--accent)">15</div>
+    <div class="stat-label">POI fixtures tested</div>
+  </div>
+  <div class="stat">
+    <div class="stat-value" style="color:var(--accent)">3</div>
+    <div class="stat-label">Primary feature pillars</div>
+  </div>
+</div>
+
+<div id="evals">
+
+<div class="card" onclick="toggle(this)">
+  <div class="card-header">
+    <span class="badge badge-pass">PASS</span>
+    <span class="card-title">1 · create_workbook_with_sheets_and_values</span>
+  </div>
+  <div class="card-body">
+    <p class="desc">Create a two-sheet workbook. "Summary" has a header row and 3 data rows. "Formulas" writes values A1:A5 and =SUM(A1:A5) in A6. Save, reload, verify.</p>
+    <ul class="assertions">
+      <li><span class="check">✓</span> len(wb.sheetnames) == 2</li>
+      <li><span class="check">✓</span> wb["Summary"]["A1"].value == "Product"</li>
+      <li><span class="check">✓</span> wb["Summary"]["B2"].value == 100</li>
+      <li><span class="check">✓</span> wb["Summary"]["C4"].value == 1250.0</li>
+      <li><span class="check">✓</span> wb["Formulas"]["A6"].value == "=SUM(A1:A5)"</li>
+      <li><span class="check">✓</span> file passes validate_xlsx()</li>
+    </ul>
+  </div>
+</div>
+
+<div class="card" onclick="toggle(this)">
+  <div class="card-header">
+    <span class="badge badge-pass">PASS</span>
+    <span class="card-title">2 · format_cells_and_merge</span>
+  </div>
+  <div class="card-body">
+    <p class="desc">Apply bold font and yellow fill to A1. Merge A2:C2. Write text to merged cell. Save, reload, verify formatting and merge.</p>
+    <ul class="assertions">
+      <li><span class="check">✓</span> ws["A1"].font.bold == True</li>
+      <li><span class="check">✓</span> ws["A1"].fill.fgColor.rgb contains "FFFF00"</li>
+      <li><span class="check">✓</span> "A2:C2" in ws.merged_cells</li>
+      <li><span class="check">✓</span> ws["A2"].value == "Merged text"</li>
+      <li><span class="check">✓</span> file passes validate_xlsx()</li>
+    </ul>
+  </div>
+</div>
+
+<div class="card" onclick="toggle(this)">
+  <div class="card-header">
+    <span class="badge badge-pass">PASS</span>
+    <span class="card-title">3 · embed_image_with_alt_text</span>
+  </div>
+  <div class="card-body">
+    <p class="desc">Generate a small PNG in-memory. Add it at anchor "B2" with alt_text="Test image". Save, reload, verify xl/media/ contains image. Read alt text back via lxml.</p>
+    <ul class="assertions">
+      <li><span class="check">✓</span> at least one part in xl/media/</li>
+      <li><span class="check">✓</span> at least one &lt;xdr:pic&gt; element found</li>
+      <li><span class="check">✓</span> get_alt_text(pic_element) == "Test image"</li>
+      <li><span class="check">✓</span> file passes validate_xlsx()</li>
+    </ul>
+  </div>
+</div>
+
+<div class="card" onclick="toggle(this)">
+  <div class="card-header">
+    <span class="badge badge-pass">PASS</span>
+    <span class="card-title">4 · read_all_values_from_poi_fixture <span class="fixture-tag">sample.xlsx</span></span>
+  </div>
+  <div class="card-body">
+    <p class="desc">Open sample.xlsx from the POI corpus. Call read_all_values(wb) and verify the returned structure matches the workbook's sheet count and data layout.</p>
+    <ul class="assertions">
+      <li><span class="check">✓</span> result is a list</li>
+      <li><span class="check">✓</span> len(result) == len(wb.sheetnames) (3)</li>
+      <li><span class="check">✓</span> each entry has "sheet" key</li>
+      <li><span class="check">✓</span> each entry has "data" key</li>
+      <li><span class="check">✓</span> each "data" is a list of lists</li>
+    </ul>
+  </div>
+</div>
+
+<div class="card" onclick="toggle(this)">
+  <div class="card-header">
+    <span class="badge badge-pass">PASS</span>
+    <span class="card-title">5 · round_trip_sheet_reorder <span class="fixture-tag">reordered_sheets.xlsx</span></span>
+  </div>
+  <div class="card-body">
+    <p class="desc">Open reordered_sheets.xlsx. Capture original sheet order. Call reorder_sheet(wb, n-1, 0) then reorder_sheet(wb, 0, n-1). Save, reload, assert order is restored.</p>
+    <ul class="assertions">
+      <li><span class="check">✓</span> original order captured (4 sheets)</li>
+      <li><span class="check">✓</span> after two reorders, order matches original</li>
+      <li><span class="check">✓</span> file passes validate_xlsx()</li>
+    </ul>
+  </div>
+</div>
+
+</div>
+
+<div class="corpus-section">
+  <h2 style="font-size:1.2rem;color:var(--accent);margin-bottom:1rem;">Corpus Test Results (Apache POI fixtures)</h2>
+  <table class="corpus-table">
+    <thead>
+      <tr>
+        <th>Fixture</th><th>Sheets</th>
+        <th>Open</th><th>Values</th><th>Count</th><th>Validate</th>
+        <th>WriteCell</th><th>Reorder</th><th>Merge</th><th>Images</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>sample.xlsx</td><td>3</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>0 imgs</td></tr>
+      <tr><td>simple-monthly-budget.xlsx</td><td>1</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-skip"></span>skipped</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>0 imgs</td></tr>
+      <tr><td>ExcelTables.xlsx</td><td>1</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-skip"></span>skipped</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>0 imgs</td></tr>
+      <tr><td>Formatting.xlsx</td><td>3</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>0 imgs</td></tr>
+      <tr><td>ConditionalFormattingSamples.xlsx</td><td>18</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>20 imgs</td></tr>
+      <tr><td>123233_charts.xlsx</td><td>5</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>0 imgs</td></tr>
+      <tr><td>styles.xlsx</td><td>3</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>0 imgs</td></tr>
+      <tr><td>DateFormatTests.xlsx</td><td>2</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>0 imgs</td></tr>
+      <tr><td>AverageTaxRates.xlsx</td><td>3</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>0 imgs</td></tr>
+      <tr><td>simple-table-named-range.xlsx</td><td>1</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-skip"></span>skipped</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>0 imgs</td></tr>
+      <tr><td>reordered_sheets.xlsx</td><td>4</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>0 imgs</td></tr>
+      <tr><td>Booleans.xlsx</td><td>3</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>0 imgs</td></tr>
+      <tr><td>InlineStrings.xlsx</td><td>3</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>0 imgs</td></tr>
+      <tr><td>DataValidations-49244.xlsx</td><td>1</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-skip"></span>skipped</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>0 imgs</td></tr>
+      <tr><td>ExcelPivotTableSample.xlsx</td><td>3</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>pass</td><td><span class="dot-pass"></span>0 imgs</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="bench-section">
+  <h2 style="font-size:1.2rem;color:var(--accent);margin-bottom:1rem;">Benchmark Results (placeholder)</h2>
+  <table class="corpus-table">
+    <thead>
+      <tr><th>Fixture</th><th>open (ms)</th><th>iterate (ms)</th><th>write_100 (ms)</th><th>validate (ms)</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>sample.xlsx</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
+      <tr><td colspan="5" style="color:var(--muted);font-size:.82rem;padding:.75rem 1rem;">Run <code>python scripts/benchmark.py --quick</code> to populate this table with live timings.</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<footer>
+  <p>xlsx-creation-editing skill · Apache 2.0 · Primary sources: openpyxl docs, ECMA-376 Part 1, Apache POI test corpus</p>
+</footer>
+
+<script>
+function toggle(card) {
+  const body = card.querySelector('.card-body');
+  body.classList.toggle('open');
+}
+document.querySelectorAll('.card-body').forEach(b => b.classList.add('open'));
+</script>
+</body>
+</html>

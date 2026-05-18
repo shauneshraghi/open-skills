@@ -1,0 +1,56 @@
+{
+  "version": "1.0",
+  "description": "Evaluation test cases for xlsx-creation-editing skill",
+  "tests": [
+    {
+      "id": "create_workbook_with_sheets_and_values",
+      "description": "Create a two-sheet workbook. 'Summary' has a header row and 3 data rows. 'Formulas' has values in A1:A5 and =SUM(A1:A5) in A6. Save, reload, and verify structure and values.",
+      "assertions": [
+        "len(wb.sheetnames) == 2",
+        "wb['Summary']['A1'].value == 'Product'",
+        "wb['Formulas']['A6'].value == '=SUM(A1:A5)'",
+        "validate_xlsx passes"
+      ]
+    },
+    {
+      "id": "format_cells_and_merge",
+      "description": "Create a workbook, apply bold font and yellow fill to A1, merge A2:C2, write text to the merged cell. Save, reload, verify formatting and merge.",
+      "assertions": [
+        "wb.active['A1'].font.bold == True",
+        "wb.active['A1'].fill.fgColor.rgb contains yellow component (FFFF00)",
+        "'A2:C2' in ws.merged_cells",
+        "merged cell A2 has the written text"
+      ]
+    },
+    {
+      "id": "embed_image_with_alt_text",
+      "description": "Generate a small PNG in-memory. Add it to a sheet at anchor 'B2' with alt_text='Test image'. Save, reload, verify image is in xl/media/, read alt text back via lxml, assert it equals 'Test image'.",
+      "assertions": [
+        "at least one file in xl/media/ of the ZIP",
+        "alt text read via lxml == 'Test image'",
+        "validate_xlsx passes"
+      ]
+    },
+    {
+      "id": "read_all_values_from_poi_fixture",
+      "description": "Open sample.xlsx from the POI corpus. Call read_all_values(wb) and verify structure matches the workbook.",
+      "fixture": "sample.xlsx",
+      "assertions": [
+        "result is a list",
+        "len(result) == len(wb.sheetnames)",
+        "each entry has 'sheet' and 'data' keys",
+        "each 'data' is a list of lists"
+      ]
+    },
+    {
+      "id": "round_trip_sheet_reorder",
+      "description": "Open reordered_sheets.xlsx (or create a 3-sheet workbook). Capture original sheet name order. Call reorder_sheet(wb, 2, 0) then reorder_sheet(wb, 0, 2). Save, reload, assert original order is restored.",
+      "fixture": "reordered_sheets.xlsx",
+      "assertions": [
+        "original order captured before reorder",
+        "after two reorders the order is restored",
+        "validate_xlsx passes"
+      ]
+    }
+  ]
+}
