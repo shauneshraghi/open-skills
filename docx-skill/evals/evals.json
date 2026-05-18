@@ -1,0 +1,80 @@
+{
+  "skill": "docx-creation-editing",
+  "version": "0.1.0",
+  "description": "Evals covering image insertion, comment management, and track changes",
+  "evals": [
+    {
+      "id": "eval_01_inline_image_alt_text",
+      "name": "Create docx with inline image and alt text",
+      "description": "Create a new document, embed a PNG as an inline image, set alt text, save, and validate that the image appears in the package and the alt text is present in wp:docPr/@descr.",
+      "prompt": "Create a new .docx file at /tmp/eval01.docx. Add a heading 'Image Test', add a paragraph 'See image below:', then add an inline image from /tmp/eval01_image.png with alt text 'A red square test image'. Save the document. Then validate it and confirm: (1) the file is valid, (2) stats.images == 1, (3) the string 'A red square test image' appears in the raw XML of word/document.xml.",
+      "setup": "import struct, zlib, io\ndef _png(r,g,b):\n    def chunk(t,d): c=zlib.crc32(t+d)&0xFFFFFFFF; return struct.pack('>I',len(d))+t+d+struct.pack('>I',c)\n    ihdr=struct.pack('>IIBBBBB',8,8,8,2,0,0,0); raw=b'\\x00'+bytes([r,g,b]*8)*8; idat=zlib.compress(raw)\n    return b'\\x89PNG\\r\\n\\x1a\\n'+chunk(b'IHDR',ihdr)+chunk(b'IDAT',idat)+chunk(b'IEND',b'')\nopen('/tmp/eval01_image.png','wb').write(_png(255,0,0))",
+      "assertions": [
+        "File /tmp/eval01.docx exists",
+        "validate('/tmp/eval01.docx')['valid'] == True",
+        "validate('/tmp/eval01.docx')['stats']['images'] == 1",
+        "'A red square test image' in zipfile.ZipFile('/tmp/eval01.docx').read('word/document.xml').decode()"
+      ],
+      "fixture": null,
+      "tags": ["images", "creation", "alt-text"]
+    },
+    {
+      "id": "eval_02_comment_insert",
+      "name": "Insert a comment on a specific paragraph",
+      "description": "Open a freshly created document, insert a comment on paragraph 1 with specific author and text, save, and verify the comment appears with correct metadata.",
+      "prompt": "Create a .docx at /tmp/eval02_base.docx with two paragraphs: 'First paragraph' and 'Second paragraph'. Then open it, add a comment to paragraph index 1 (the second paragraph) with text='Review this section' and author='Alice'. Save to /tmp/eval02.docx. Read back the comments and confirm: (1) there is exactly 1 comment, (2) comment text is 'Review this section', (3) comment author is 'Alice'.",
+      "setup": null,
+      "assertions": [
+        "File /tmp/eval02.docx exists",
+        "len(read_comments(open_document('/tmp/eval02.docx'))) == 1",
+        "read_comments(open_document('/tmp/eval02.docx'))[0]['author'] == 'Alice'",
+        "read_comments(open_document('/tmp/eval02.docx'))[0]['text'] == 'Review this section'"
+      ],
+      "fixture": null,
+      "tags": ["comments", "insert"]
+    },
+    {
+      "id": "eval_03_read_poi_comments",
+      "name": "Read comments from Apache POI test fixture",
+      "description": "Open the Apache POI comment.docx test fixture and read all comments. Verify at least one comment is present and has non-empty author and text fields.",
+      "prompt": "Open the file at /home/user/poi/test-data/document/comment.docx using open_document(). Call read_comments() on it and print the result as JSON. Confirm: (1) at least 1 comment is returned, (2) each comment has a non-empty 'author' field, (3) each comment has a non-empty 'text' field.",
+      "setup": null,
+      "assertions": [
+        "len(read_comments(open_document('/home/user/poi/test-data/document/comment.docx'))) >= 1",
+        "all(c['author'] for c in read_comments(open_document('/home/user/poi/test-data/document/comment.docx')))",
+        "all(c['text'] for c in read_comments(open_document('/home/user/poi/test-data/document/comment.docx')))"
+      ],
+      "fixture": "/home/user/poi/test-data/document/comment.docx",
+      "tags": ["comments", "read", "poi-fixture"]
+    },
+    {
+      "id": "eval_04_track_delete_accept",
+      "name": "Insert tracked deletion and accept all changes",
+      "description": "Create a document with a paragraph, insert a tracked deletion on that paragraph, verify the w:del element is present, then accept all changes and verify the w:del is gone and the text is removed.",
+      "prompt": "Create a .docx at /tmp/eval04_base.docx with one paragraph: 'Hello world this is a test'. Open it, insert a tracked deletion on paragraph 0 with text='this is a test' and author='Bob'. Save to /tmp/eval04_deleted.docx. Verify 'w:del' appears in word/document.xml. Then open /tmp/eval04_deleted.docx, call accept_all_changes(), save to /tmp/eval04_accepted.docx. Verify: (1) 'w:del' does NOT appear in /tmp/eval04_accepted.docx word/document.xml, (2) 'w:ins' does NOT appear either, (3) the document is valid.",
+      "setup": null,
+      "assertions": [
+        "b'w:del' in zipfile.ZipFile('/tmp/eval04_deleted.docx').read('word/document.xml')",
+        "b'w:del' not in zipfile.ZipFile('/tmp/eval04_accepted.docx').read('word/document.xml')",
+        "b'w:ins' not in zipfile.ZipFile('/tmp/eval04_accepted.docx').read('word/document.xml')",
+        "validate('/tmp/eval04_accepted.docx')['valid'] == True"
+      ],
+      "fixture": null,
+      "tags": ["track-changes", "accept", "deletion"]
+    },
+    {
+      "id": "eval_05_round_trip_image",
+      "name": "Round-trip edit: open POI fixture, add inline image, validate",
+      "description": "Open the Apache POI VariousPictures.docx fixture (which already has images), add another inline image with alt text, save to a new file, and validate the result has more images than before and is well-formed.",
+      "prompt": "Open /home/user/poi/test-data/document/VariousPictures.docx. Record the initial image count from validate(). Add a new inline image (use a simple 8x8 red PNG created in memory) with alt text='Round-trip test image'. Save to /tmp/eval05.docx. Validate /tmp/eval05.docx and confirm: (1) it is valid, (2) stats.images == initial_count + 1, (3) 'Round-trip test image' appears in word/document.xml.",
+      "setup": "import struct, zlib\ndef _png(r,g,b):\n    def chunk(t,d): c=zlib.crc32(t+d)&0xFFFFFFFF; return struct.pack('>I',len(d))+t+d+struct.pack('>I',c)\n    ihdr=struct.pack('>IIBBBBB',8,8,8,2,0,0,0); raw=b'\\x00'+bytes([r,g,b]*8)*8; idat=zlib.compress(raw)\n    return b'\\x89PNG\\r\\n\\x1a\\n'+chunk(b'IHDR',ihdr)+chunk(b'IDAT',idat)+chunk(b'IEND',b'')\nopen('/tmp/eval05_image.png','wb').write(_png(255,0,0))",
+      "assertions": [
+        "validate('/tmp/eval05.docx')['valid'] == True",
+        "validate('/tmp/eval05.docx')['stats']['images'] > validate('/home/user/poi/test-data/document/VariousPictures.docx')['stats']['images']",
+        "'Round-trip test image' in zipfile.ZipFile('/tmp/eval05.docx').read('word/document.xml').decode()"
+      ],
+      "fixture": "/home/user/poi/test-data/document/VariousPictures.docx",
+      "tags": ["images", "round-trip", "poi-fixture"]
+    }
+  ]
+}
