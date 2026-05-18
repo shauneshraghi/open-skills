@@ -33,9 +33,14 @@ from docx.oxml.ns import qn
 from docx.shared import Inches
 from lxml import etree
 
-POI = Path("/home/user/poi/test-data")
-OUT = Path("/tmp/docx_tests")
-OUT.mkdir(exist_ok=True)
+# POI_PATH env var lets CI / other platforms point at their own corpus clone.
+# Defaults to the path used in the reference Linux dev environment.
+POI = Path(os.environ.get("POI_PATH", "/home/user/poi/test-data"))
+
+# Output directory: use a temp dir so the tests work on Windows (no /tmp),
+# macOS, and Linux without any configuration.
+import tempfile as _tempfile
+OUT = Path(os.environ.get("DOCX_TEST_OUT", _tempfile.mkdtemp(prefix="docx_tests_")))
 
 _W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 
@@ -609,10 +614,10 @@ def _test_F1():
     images_before = validate_docx.validate(POI / "integration/stress023.docx")["stats"]["images"]
 
     png = _make_png(0, 128, 255)
-    with open("/tmp/F1_test.png", "wb") as f:
+    with open(OUT / "F1_test.png", "wb") as f:
         f.write(png)
 
-    create_docx.add_inline_image(doc, "/tmp/F1_test.png", width=Inches(1), alt_text="Reviewer diagram")
+    create_docx.add_inline_image(doc, OUT / "F1_test.png", width=Inches(1), alt_text="Reviewer diagram")
 
     out = OUT / "F1_stress023_plus_image.docx"
     edit_docx.save_document(doc, out)
@@ -660,9 +665,9 @@ def _test_F3():
     edit_docx.insert_tracked_insertion(doc, 0, " [reviewed]", author="Reviewer")
     # Then replace image 0
     png = _make_png(255, 165, 0)
-    with open("/tmp/F3_replace.png", "wb") as f:
+    with open(OUT / "F3_replace.png", "wb") as f:
         f.write(png)
-    replaced = create_docx.replace_image(doc, 0, "/tmp/F3_replace.png")
+    replaced = create_docx.replace_image(doc, 0, OUT / "F3_replace.png")
     assert replaced, "replace_image returned False"
 
     out = OUT / "F3_replaced_image_with_trackchange.docx"

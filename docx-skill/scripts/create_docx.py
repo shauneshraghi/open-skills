@@ -104,7 +104,8 @@ def add_inline_image(
         para = doc.add_paragraph()
         run = para.add_run()
 
-    run.add_picture(image, width=width, height=height)
+    # python-docx add_picture accepts str or IO[bytes] but not pathlib.Path
+    run.add_picture(str(image) if isinstance(image, Path) else image, width=width, height=height)
 
     if alt_text:
         _set_inline_alt_text(run, alt_text)
