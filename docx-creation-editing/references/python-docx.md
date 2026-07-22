@@ -173,8 +173,11 @@ for el in body.iter(qn("w:commentReference")):
         # remove the wrapper run if it only contained the reference
         run_el.getparent().remove(run_el)
 
-# Remove from comments part
-comments_elm = doc.part.comments_part.element
+# Remove from comments part (python-docx 1.x uses _comments_part, a private attr)
+try:
+    comments_elm = doc.part._comments_part.element
+except AttributeError:
+    comments_elm = doc.comments._comments_elm
 for c in comments_elm.findall(qn("w:comment")):
     if c.get(qn("w:id")) == cid:
         comments_elm.remove(c)

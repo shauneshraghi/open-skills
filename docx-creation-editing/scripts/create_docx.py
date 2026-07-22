@@ -16,10 +16,8 @@ from pathlib import Path
 from typing import IO, Union
 
 from docx import Document
-from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
-from docx.oxml.parser import parse_xml
-from docx.shared import Emu, Inches, Pt
+from docx.shared import Emu, Inches
 from lxml import etree
 
 # ── Namespace URIs ────────────────────────────────────────────────────────────
@@ -29,7 +27,41 @@ _WP  = "http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing"
 _A   = "http://schemas.openxmlformats.org/drawingml/2006/main"
 _PIC = "http://schemas.openxmlformats.org/drawingml/2006/picture"
 _R   = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
-_XML = "http://www.w3.org/XML/1998/namespace"
+
+
+def _canonical_image_extension(ext: str | None) -> str | None:
+    if not ext:
+        return ext
+    return {
+        ".jpg": ".jpeg",
+    }.get(ext.lower(), ext.lower())
+
+
+def _sniff_image_extension(image_bytes: bytes) -> str | None:
+    if image_bytes.startswith(b"\x89PNG\r\n\x1a\n"):
+        return ".png"
+    if image_bytes.startswith(b"\xff\xd8\xff"):
+        return ".jpeg"
+    if image_bytes.startswith((b"GIF87a", b"GIF89a")):
+        return ".gif"
+    if image_bytes.startswith(b"BM"):
+        return ".bmp"
+    if image_bytes.startswith((b"II*\x00", b"MM\x00*")):
+        return ".tiff"
+    if image_bytes.startswith(b"\xd7\xcd\xc6\x9a"):
+        return ".wmf"
+    if len(image_bytes) >= 44 and image_bytes[:4] == b"\x01\x00\x00\x00" and image_bytes[40:44] == b" EMF":
+        return ".emf"
+    return None
+
+
+def _resolve_replacement_extension(image_bytes: bytes, path: Path | None = None) -> str | None:
+    detected = _sniff_image_extension(image_bytes)
+    if detected is not None:
+        return detected
+    if path is not None:
+        return _canonical_image_extension(path.suffix)
+    return None
 
 
 def create_document(
@@ -211,40 +243,56 @@ def _build_anchor(
     distL/distR=114300 EMU ≈ 0.125 inch, the default image margin.
     """
     behind = "1" if behind_doc else "0"
-    wrap_tag = {
-        "square":  "wp:wrapSquare",
-        "tight":   "wp:wrapTight",
-        "through": "wp:wrapThrough",
-        "none":    "wp:wrapNone",
-    }.get(wrap, "wp:wrapSquare")
+    wrap_name = {
+        "square": "wrapSquare",
+        "tight": "wrapTight",
+        "through": "wrapThrough",
+        "none": "wrapNone",
+    }.get(wrap, "wrapSquare")
 
-    ns = f'xmlns:wp="{_WP}" xmlns:a="{_A}" xmlns:pic="{_PIC}" xmlns:r="{_R}"'
-    wrap_xml = (
-        f'<{wrap_tag} wrapText="bothSides" xmlns:wp="{_WP}"/>'
-        if wrap != "none"
-        else f'<{wrap_tag} xmlns:wp="{_WP}"/>'
-    )
+    anchor = etree.Element(f"{{{_WP}}}anchor", nsmap={
+        "wp": _WP,
+        "a": _A,
+        "pic": _PIC,
+        "r": _R,
+    })
+    anchor.attrib.update({
+        "distT": "0",
+        "distB": "0",
+        "distL": "114300",
+        "distR": "114300",
+        "simplePos": "0",
+        "relativeHeight": "251658240",
+        "behindDoc": behind,
+        "locked": "0",
+        "layoutInCell": "1",
+        "allowOverlap": "1",
+    })
 
-    anchor_xml = (
-        f'<wp:anchor {ns} '
-        f'distT="0" distB="0" distL="114300" distR="114300" '
-        f'simplePos="0" relativeHeight="251658240" behindDoc="{behind}" '
-        f'locked="0" layoutInCell="1" allowOverlap="1">'
-        f'  <wp:simplePos x="0" y="0"/>'
-        f'  <wp:positionH relativeFrom="column">'
-        f'    <wp:align>{h_align}</wp:align>'
-        f'  </wp:positionH>'
-        f'  <wp:positionV relativeFrom="paragraph">'
-        f'    <wp:align>{v_align}</wp:align>'
-        f'  </wp:positionV>'
-        f'  <wp:extent cx="{cx}" cy="{cy}"/>'
-        f'  <wp:effectExtent l="0" t="0" r="0" b="0"/>'
-        f'  {wrap_xml}'
-        f'  <wp:docPr id="{shape_id}" name="{shape_name}" descr="{alt_text}"/>'
-        f'  <wp:cNvGraphicFramePr/>'
-        f'</wp:anchor>'
+    etree.SubElement(anchor, f"{{{_WP}}}simplePos", x="0", y="0")
+
+    position_h = etree.SubElement(anchor, f"{{{_WP}}}positionH", relativeFrom="column")
+    etree.SubElement(position_h, f"{{{_WP}}}align").text = h_align
+
+    position_v = etree.SubElement(anchor, f"{{{_WP}}}positionV", relativeFrom="paragraph")
+    etree.SubElement(position_v, f"{{{_WP}}}align").text = v_align
+
+    etree.SubElement(anchor, f"{{{_WP}}}extent", cx=str(cx), cy=str(cy))
+    etree.SubElement(anchor, f"{{{_WP}}}effectExtent", l="0", t="0", r="0", b="0")
+
+    wrap_el = etree.SubElement(anchor, f"{{{_WP}}}{wrap_name}")
+    if wrap_name != "wrapNone":
+        wrap_el.set("wrapText", "bothSides")
+
+    etree.SubElement(
+        anchor,
+        f"{{{_WP}}}docPr",
+        id=str(shape_id),
+        name=shape_name,
+        descr=alt_text,
     )
-    anchor = parse_xml(anchor_xml)
+    etree.SubElement(anchor, f"{{{_WP}}}cNvGraphicFramePr")
+
     anchor.append(graphic_el)
     return anchor
 
@@ -263,6 +311,10 @@ def replace_image(
     The image dimensions in the XML are NOT updated — the new image is scaled to
     the existing frame size.
 
+    The replacement must use the same image format as the existing relationship
+    target. python-docx does not update `[Content_Types].xml` or package part names
+    for us, so format changes would leave inconsistent package metadata.
+
     Returns True if the replacement was made, False if the index was out of range.
 
     Design: Relationship-based image parts (ECMA-376 §15.3) — the rId on a:blip
@@ -270,10 +322,17 @@ def replace_image(
     doc.part.related_parts[rId] and its blob via ._blob.
     """
     if isinstance(new_image, (str, Path)):
+        new_path = Path(new_image)
         with open(str(new_image), "rb") as f:
             new_bytes = f.read()
+        new_ext = _resolve_replacement_extension(new_bytes, new_path)
     else:
         new_bytes = new_image.read()
+        new_ext = _resolve_replacement_extension(new_bytes)
+        if new_ext is None:
+            raise ValueError(
+                "Cannot determine replacement image format from stream input"
+            )
 
     blips = doc.element.body.findall(
         f".//{{{_A}}}blip"
@@ -287,6 +346,11 @@ def replace_image(
         return False
 
     image_part = doc.part.related_parts[rid]
+    part_ext = _canonical_image_extension(Path(image_part.partname).suffix)
+    if new_ext is not None and new_ext != part_ext:
+        raise ValueError(
+            f"Replacement image format {new_ext or '<stream>'} does not match existing {part_ext}"
+        )
     image_part._blob = new_bytes
     return True
 

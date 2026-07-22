@@ -142,3 +142,7 @@ open-skills/
 ## License
 
 Apache 2.0 — see [LICENSE](LICENSE).
+
+Each skill bundles Microsoft's Office VBA reference documentation under
+`references/vba-docs/`, redistributed under CC-BY-4.0 — see
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

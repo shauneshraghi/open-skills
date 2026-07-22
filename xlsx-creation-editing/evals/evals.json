@@ -51,6 +51,36 @@
         "after two reorders the order is restored",
         "validate_xlsx passes"
       ]
+    },
+    {
+      "id": "eval_06_vba_range_find_replace",
+      "description": "Generate a VBA Sub that finds all occurrences of 'OldValue' in a worksheet range A1:Z100 and replaces them with 'NewValue'. Save the code as a .bas module file using write_bas_file().",
+      "assertions": [
+        "generated code contains Range or Cells reference",
+        "generated code contains Replace or Find",
+        "generated code contains 'OldValue' and 'NewValue' as string arguments",
+        ".bas file starts with Attribute VB_Name header"
+      ]
+    },
+    {
+      "id": "eval_07_vba_populate_range_from_array",
+      "description": "Generate a VBA Sub that populates cells A1:A5 on the active sheet from a VBA array of five numeric values using a For loop. The macro should use Cells(i, 1) syntax.",
+      "assertions": [
+        "generated code contains For",
+        "generated code contains Cells",
+        "generated code contains ActiveSheet or Worksheets",
+        "generated code contains array or individual value assignments"
+      ]
+    },
+    {
+      "id": "eval_08_vba_excel_exe_invocation",
+      "description": "Build the correct excel.exe command-line invocation to open a macro workbook at C:\\Reports\\monthly.xlsm that contains an Auto_Open macro. Note: Excel has no /m<macroname> CLI switch. The Auto_Open Sub fires automatically on open.",
+      "assertions": [
+        "command references excel or excel.exe",
+        "workbook path is quoted or present",
+        "no /m<macroname> switch (Excel does not support this)",
+        "explanation mentions Auto_Open fires on open"
+      ]
     }
   ]
 }

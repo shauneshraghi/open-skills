@@ -58,6 +58,36 @@
         "slide count unchanged",
         "file passes validate_pptx()"
       ]
+    },
+    {
+      "id": "eval_06_vba_shape_loop",
+      "description": "Generate a VBA Sub that loops over all shapes on slide 1 of the active presentation and sets the font color of any text frame to red (RGB 255, 0, 0). Save the code as a .bas module file using write_bas_file().",
+      "assertions": [
+        "generated code contains For Each or For loop over Shapes",
+        "generated code references TextFrame or HasTextFrame",
+        "generated code sets font color (Font.Color or RGB)",
+        ".bas file starts with Attribute VB_Name header"
+      ]
+    },
+    {
+      "id": "eval_07_vba_add_slide_with_title",
+      "description": "Generate a VBA Sub that adds a new slide at the end of the active presentation using a title-only layout, sets the title text to 'Generated Slide', and saves the presentation.",
+      "assertions": [
+        "generated code calls Slides.Add or ActivePresentation.Slides.Add",
+        "generated code sets title text (Title.TextFrame or similar)",
+        "generated code calls Save or SaveAs",
+        "generated code references ActivePresentation"
+      ]
+    },
+    {
+      "id": "eval_08_vba_powerpnt_invocation",
+      "description": "Build the correct POWERPNT.exe command-line invocation to open a macro-enabled presentation at C:\\Decks\\report.pptm and run the macro named BuildSlides. Note: the /M switch syntax is POWERPNT.exe /M <file> \"<MacroName>\" — the file path comes immediately after /M, then the macro name as a separate argument.",
+      "assertions": [
+        "command references POWERPNT or POWERPNT.exe",
+        "/M switch is present",
+        "file path C:\\Decks\\report.pptm follows /M directly",
+        "macro name BuildSlides appears as a separate argument after the file path"
+      ]
     }
   ]
 }

@@ -21,24 +21,31 @@ Design decisions from primary sources:
 from __future__ import annotations
 
 import argparse
+import hashlib
 import io
 import zipfile
-from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-import openpyxl
 from lxml import etree
 from openpyxl import Workbook
 from openpyxl.drawing.image import Image as XLImage
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+from openpyxl.utils.cell import coordinate_to_tuple
 
 # XML namespace for SpreadsheetML drawing parts (ECMA-376 §20.5)
 _XDR_NS = "http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing"
 _XDR = f"{{{_XDR_NS}}}"
+_A_NS = "http://schemas.openxmlformats.org/drawingml/2006/main"
+_A = f"{{{_A_NS}}}"
+_R_NS = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+_R = f"{{{_R_NS}}}"
+_SHEET_NS = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
+_SHEET = f"{{{_SHEET_NS}}}"
 
 # Relationship type for worksheet drawings (OPC / ECMA-376 Part 2)
 _REL_DRAWING = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing"
+_REL_WORKSHEET = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet"
 
 
 # ─────────────────────────── workbook / sheet ops ────────────────────────────
@@ -66,6 +73,8 @@ def rename_sheet(ws: Any, new_name: str) -> None:
 
 def delete_sheet(wb: Workbook, name_or_index: str | int) -> None:
     """Remove a sheet by name or 0-based index."""
+    if len(wb.worksheets) <= 1:
+        raise ValueError("Cannot delete the only worksheet in a workbook.")
     if isinstance(name_or_index, int):
         ws = wb.worksheets[name_or_index]
     else:
@@ -96,8 +105,6 @@ def reorder_sheet(wb: Workbook, from_index: int, to_index: int) -> None:
         # lxml fallback: manipulate <workbook><sheets> child order.
         # ECMA-376 §18.2.19: <sheet> element order within <sheets> determines
         # the user-visible sheet tab order.
-        _WB_NS = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
-        root = wb._sheets  # internal list; also reorder the workbook XML
         # Reorder wb._sheets list
         sheets = wb._sheets
         sheet = sheets.pop(from_index)
@@ -214,10 +221,45 @@ def add_image_to_sheet(
     img.anchor = anchor
     ws.add_image(img)
     if alt_text:
-        alts: dict[int, str] = getattr(ws, "_xlsx_skill_alt_texts", {})
-        alts[len(ws._images) - 1] = alt_text
-        ws._xlsx_skill_alt_texts = alts
+        set_image_metadata(
+            ws,
+            len(ws._images) - 1,
+            image_path,
+            anchor,
+            alt_text=alt_text,
+        )
     return img
+
+
+def set_image_metadata(
+    ws: Any,
+    index: int,
+    image_path: str | Path,
+    anchor: Any,
+    *,
+    alt_text: str | None = None,
+) -> None:
+    """Store matching metadata for later ZIP-level drawing patching."""
+    metadata: list[dict[str, Any] | None] = list(
+        getattr(ws, "_xlsx_skill_image_metadata", [])
+    )
+    while len(metadata) <= index:
+        metadata.append(None)
+
+    entry = dict(metadata[index] or {})
+    source_path = Path(image_path)
+    entry.update(
+        {
+            "source_hash": _hash_file(source_path),
+            "source_name": source_path.name,
+            "anchor_key": _normalize_anchor(anchor),
+        }
+    )
+    if alt_text is not None:
+        entry["alt_text"] = alt_text
+
+    metadata[index] = entry
+    ws._xlsx_skill_image_metadata = metadata
 
 
 # ─────────────────────────── save (with alt-text patch) ──────────────────────
@@ -250,11 +292,15 @@ def _patch_alt_texts(wb: Workbook, path: Path) -> None:
 
     ECMA-376 §20.5.2.8 and OPC Part 2 §10 (ZIP packaging).
     """
-    pending: dict[int, dict[int, str]] = {}
+    pending: dict[int, list[dict[str, Any]]] = {}
     for ws_idx, ws in enumerate(wb.worksheets):
-        alts: dict[int, str] = getattr(ws, "_xlsx_skill_alt_texts", {})
-        if alts:
-            pending[ws_idx] = alts
+        metadata = [
+            entry
+            for entry in getattr(ws, "_xlsx_skill_image_metadata", [])
+            if entry and entry.get("alt_text")
+        ]
+        if metadata:
+            pending[ws_idx] = metadata
     if not pending:
         return
 
@@ -264,10 +310,18 @@ def _patch_alt_texts(wb: Workbook, path: Path) -> None:
         for name in zf.namelist():
             file_map[name] = zf.read(name)
 
-    for ws_idx, alts in pending.items():
-        sheet_num = ws_idx + 1
-        rels_key = f"xl/worksheets/_rels/sheet{sheet_num}.xml.rels"
+    worksheet_parts = _worksheet_part_paths_in_order(file_map)
+    failures: list[str] = []
+
+    for ws_idx, metadata_entries in pending.items():
+        if ws_idx >= len(worksheet_parts):
+            failures.append(f"Worksheet index {ws_idx} has no matching worksheet part.")
+            continue
+
+        worksheet_part = worksheet_parts[ws_idx]
+        rels_key = _rels_part_for_part(worksheet_part)
         if rels_key not in file_map:
+            failures.append(f"Missing worksheet relationships part for {worksheet_part}.")
             continue
 
         rels_root = etree.fromstring(file_map[rels_key])
@@ -277,23 +331,45 @@ def _patch_alt_texts(wb: Workbook, path: Path) -> None:
                 drawing_target = rel.get("Target", "")
                 break
         if not drawing_target:
+            failures.append(f"Worksheet {worksheet_part} has no drawing relationship.")
             continue
 
-        drawing_part = _resolve_path(f"xl/worksheets/sheet{sheet_num}.xml", drawing_target)
+        drawing_part = _resolve_path(worksheet_part, drawing_target)
         if drawing_part not in file_map:
+            failures.append(
+                f"Worksheet drawing target for {worksheet_part} is missing: {drawing_part}"
+            )
+            continue
+
+        drawing_rels_key = _rels_part_for_part(drawing_part)
+        if drawing_rels_key not in file_map:
+            failures.append(f"Missing drawing relationships part for {drawing_part}.")
             continue
 
         root = etree.fromstring(file_map[drawing_part])
-        pics = root.findall(f".//{_XDR}pic")
-        for img_idx, alt in alts.items():
-            if img_idx < len(pics):
-                cnvpr = pics[img_idx].find(f"{_XDR}nvPicPr/{_XDR}cNvPr")
-                if cnvpr is not None:
-                    cnvpr.set("descr", alt)
+        drawing_rels_root = etree.fromstring(file_map[drawing_rels_key])
+        pictures = _picture_records(root, drawing_part, drawing_rels_root, file_map)
+        used_indices: set[int] = set()
+
+        for metadata in metadata_entries:
+            match_index = _match_picture_record(metadata, pictures, used_indices)
+            if match_index is None:
+                failures.append(
+                    "Unable to match image metadata to drawing picture for "
+                    f"worksheet {worksheet_part}: {metadata}"
+                )
+                continue
+
+            pictures[match_index]["cnvpr"].set("descr", metadata["alt_text"])
+            used_indices.add(match_index)
 
         file_map[drawing_part] = etree.tostring(
             root, xml_declaration=True, encoding="UTF-8", standalone=True
         )
+
+    if failures:
+        joined = "; ".join(failures)
+        raise ValueError(f"Failed to patch XLSX image alt text safely: {joined}")
 
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf_out:
@@ -318,6 +394,128 @@ def _resolve_path(source: str, target: str) -> str:
         elif part and part != ".":
             resolved.append(part)
     return "/".join(resolved)
+
+
+def _rels_part_for_part(part_name: str) -> str:
+    part_path = Path(part_name)
+    return str(part_path.parent / "_rels" / f"{part_path.name}.rels").replace("\\", "/")
+
+
+def _worksheet_part_paths_in_order(file_map: dict[str, bytes]) -> list[str]:
+    workbook_part = "xl/workbook.xml"
+    workbook_rels_part = "xl/_rels/workbook.xml.rels"
+    if workbook_part not in file_map or workbook_rels_part not in file_map:
+        return []
+
+    workbook_root = etree.fromstring(file_map[workbook_part])
+    workbook_rels_root = etree.fromstring(file_map[workbook_rels_part])
+    rel_targets = {
+        rel.get("Id", ""): _resolve_path(workbook_part, rel.get("Target", ""))
+        for rel in workbook_rels_root
+        if _REL_WORKSHEET in rel.get("Type", "")
+    }
+
+    worksheet_parts: list[str] = []
+    for sheet in workbook_root.findall(f".//{_SHEET}sheets/{_SHEET}sheet"):
+        rel_id = sheet.get(f"{_R}id")
+        if rel_id and rel_id in rel_targets:
+            worksheet_parts.append(rel_targets[rel_id])
+    return worksheet_parts
+
+
+def _picture_records(
+    drawing_root: Any,
+    drawing_part: str,
+    drawing_rels_root: Any,
+    file_map: dict[str, bytes],
+) -> list[dict[str, Any]]:
+    rel_targets = {
+        rel.get("Id", ""): _resolve_path(drawing_part, rel.get("Target", ""))
+        for rel in drawing_rels_root
+    }
+    records: list[dict[str, Any]] = []
+    for pic in drawing_root.findall(f".//{_XDR}pic"):
+        blip = pic.find(f".//{_A}blip")
+        embed = blip.get(f"{_R}embed") if blip is not None else None
+        media_part = rel_targets.get(embed or "")
+        media_bytes = file_map.get(media_part, b"") if media_part else b""
+        cnvpr = pic.find(f"{_XDR}nvPicPr/{_XDR}cNvPr")
+        if cnvpr is None:
+            continue
+        records.append(
+            {
+                "cnvpr": cnvpr,
+                "anchor_key": _anchor_key_for_picture(pic),
+                "media_part": media_part,
+                "media_hash": _hash_bytes(media_bytes) if media_bytes else None,
+            }
+        )
+    return records
+
+
+def _match_picture_record(
+    metadata: dict[str, Any],
+    pictures: list[dict[str, Any]],
+    used_indices: set[int],
+) -> int | None:
+    anchor_key = metadata.get("anchor_key")
+    source_hash = metadata.get("source_hash")
+
+    matchers = (
+        lambda record: record.get("media_hash") == source_hash
+        and record.get("anchor_key") == anchor_key,
+        lambda record: record.get("media_hash") == source_hash,
+        lambda record: anchor_key is not None and record.get("anchor_key") == anchor_key,
+    )
+    for matcher in matchers:
+        candidates = [
+            index
+            for index, record in enumerate(pictures)
+            if index not in used_indices and matcher(record)
+        ]
+        if len(candidates) == 1:
+            return candidates[0]
+    return None
+
+
+def _anchor_key_for_picture(pic: Any) -> tuple[str, int, int] | None:
+    parent = pic.getparent()
+    if parent is None:
+        return None
+    from_el = parent.find(f"{_XDR}from")
+    if from_el is None:
+        return None
+    col_el = from_el.find(f"{_XDR}col")
+    row_el = from_el.find(f"{_XDR}row")
+    if col_el is None or row_el is None:
+        return None
+    try:
+        return ("cell", int(row_el.text or "0"), int(col_el.text or "0"))
+    except ValueError:
+        return None
+
+
+def _normalize_anchor(anchor: Any) -> tuple[str, int, int] | None:
+    if isinstance(anchor, str):
+        row, col = coordinate_to_tuple(anchor)
+        return ("cell", row - 1, col - 1)
+
+    marker = getattr(anchor, "_from", None)
+    if marker is not None and hasattr(marker, "row") and hasattr(marker, "col"):
+        return ("cell", int(marker.row), int(marker.col))
+
+    if hasattr(anchor, "row") and hasattr(anchor, "col"):
+        return ("cell", int(anchor.row), int(anchor.col))
+
+    return None
+
+
+def _hash_file(path: Path) -> str:
+    return _hash_bytes(path.read_bytes())
+
+
+def _hash_bytes(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
 
 
 # ─────────────────────────── CLI ──────────────────────────────────────────────

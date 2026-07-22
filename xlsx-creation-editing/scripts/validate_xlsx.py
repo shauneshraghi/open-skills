@@ -23,13 +23,53 @@ import sys
 import zipfile
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 from lxml import etree
 
 REQUIRED_PARTS = [
     "[Content_Types].xml",
     "_rels/.rels",
+    "xl/workbook.xml",
+    "xl/_rels/workbook.xml.rels",
 ]
+
+WORKSHEET_CONTENT_TYPE = (
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"
+)
+DRAWING_CONTENT_TYPE = (
+    "application/vnd.openxmlformats-officedocument.drawing+xml"
+)
+SUPPORTED_MEDIA_EXTENSIONS = {
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".gif",
+    ".bmp",
+    ".emf",
+    ".wmf",
+    ".tiff",
+    ".tif",
+}
+MEDIA_CONTENT_TYPES = {
+    "image/png",
+    "image/jpeg",
+    "image/gif",
+    "image/bmp",
+    "image/x-emf",
+    "image/x-wmf",
+    "image/tiff",
+}
+REL_WORKBOOK = (
+    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument"
+)
+REL_WORKSHEET = (
+    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet"
+)
+REL_DRAWING = (
+    "http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing"
+)
+REL_IMAGE = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/image"
 
 SPREADSHEET_CONTENT_TYPES = {
     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml",
@@ -74,6 +114,8 @@ def validate_xlsx(path: str | Path) -> ValidationResult:
     _check_xml_well_formed(path, result)
     _check_counts(path, result)
     _check_relationship_targets(path, result)
+    _check_workbook_structure(path, result)
+    _check_drawing_and_media_integrity(path, result)
 
     return result
 
@@ -118,6 +160,12 @@ def _check_required_parts(path: Path, result: ValidationResult) -> None:
                     )
                 else:
                     result.info["workbook_part"] = wb_parts[0]
+                    workbook_part = wb_parts[0].lstrip("/")
+                    if workbook_part not in names:
+                        result.valid = False
+                        result.errors.append(
+                            f"Workbook part declared in [Content_Types].xml is missing: {workbook_part}"
+                        )
             except etree.XMLSyntaxError as exc:
                 result.valid = False
                 result.errors.append(f"[Content_Types].xml XML error: {exc}")
@@ -149,10 +197,7 @@ def _check_counts(path: Path, result: ValidationResult) -> None:
         ]
         images = [
             n for n in names
-            if n.startswith("xl/media/") and any(
-                n.lower().endswith(ext)
-                for ext in (".png", ".jpg", ".jpeg", ".gif", ".bmp", ".emf", ".wmf", ".tiff")
-            )
+            if n.startswith("xl/media/") and Path(n).suffix.lower() in SUPPORTED_MEDIA_EXTENSIONS
         ]
         result.info["sheet_count"] = len(sheets)
         result.info["image_count"] = len(images)
@@ -190,12 +235,136 @@ def _check_relationship_targets(path: Path, result: ValidationResult) -> None:
                     )
 
         if broken_rels:
+            result.valid = False
             for br in broken_rels[:10]:
-                result.warnings.append(f"Broken relationship: {br}")
+                result.errors.append(f"Broken relationship: {br}")
             if len(broken_rels) > 10:
-                result.warnings.append(
+                result.errors.append(
                     f"…and {len(broken_rels) - 10} more broken relationships"
                 )
+
+
+def _check_workbook_structure(path: Path, result: ValidationResult) -> None:
+    with zipfile.ZipFile(path) as z:
+        names = set(z.namelist())
+        workbook_part = result.info.get("workbook_part", "/xl/workbook.xml").lstrip("/")
+        if workbook_part not in names:
+            result.valid = False
+            result.errors.append(f"Workbook part missing: {workbook_part}")
+            return
+
+        workbook_rels = _rels_part_for_part(workbook_part)
+        if workbook_rels not in names:
+            result.valid = False
+            result.errors.append(f"Missing workbook relationships part: {workbook_rels}")
+            return
+
+        workbook_root = etree.fromstring(z.read(workbook_part))
+        workbook_rels_root = etree.fromstring(z.read(workbook_rels))
+        worksheet_targets = {
+            rel.get("Id", ""): _resolve_path(workbook_part, rel.get("Target", ""))
+            for rel in workbook_rels_root
+            if _rel_type(rel) == REL_WORKSHEET
+        }
+        workbook_links = [
+            rel
+            for rel in workbook_rels_root
+            if _rel_type(rel) == REL_WORKBOOK
+        ]
+        if workbook_links:
+            result.warnings.append(
+                "Workbook relationships part unexpectedly contains officeDocument links; package structure may be unusual."
+            )
+
+        sheet_elements = workbook_root.findall(
+            ".//{http://schemas.openxmlformats.org/spreadsheetml/2006/main}sheet"
+        )
+        if not sheet_elements:
+            result.valid = False
+            result.errors.append("Workbook contains no <sheet> elements.")
+            return
+
+        for sheet in sheet_elements:
+            rel_id = sheet.get(
+                "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id"
+            )
+            sheet_name = sheet.get("name", "<unnamed>")
+            if not rel_id or rel_id not in worksheet_targets:
+                result.valid = False
+                result.errors.append(
+                    f"Workbook sheet {sheet_name!r} is missing a valid worksheet relationship."
+                )
+                continue
+            worksheet_part = worksheet_targets[rel_id]
+            if worksheet_part not in names:
+                result.valid = False
+                result.errors.append(
+                    f"Workbook sheet {sheet_name!r} points to missing worksheet part: {worksheet_part}"
+                )
+
+
+def _check_drawing_and_media_integrity(path: Path, result: ValidationResult) -> None:
+    with zipfile.ZipFile(path) as z:
+        names = set(z.namelist())
+        ct_map = _content_type_map(z)
+        worksheet_parts = [
+            name
+            for name in names
+            if name.startswith("xl/worksheets/") and name.endswith(".xml")
+        ]
+
+        for worksheet_part in worksheet_parts:
+            worksheet_rels = _rels_part_for_part(worksheet_part)
+            if worksheet_rels not in names:
+                continue
+            worksheet_rels_root = etree.fromstring(z.read(worksheet_rels))
+            for rel in worksheet_rels_root:
+                if _rel_type(rel) != REL_DRAWING:
+                    continue
+                drawing_part = _resolve_path(worksheet_part, rel.get("Target", ""))
+                if drawing_part not in names:
+                    result.valid = False
+                    result.errors.append(
+                        f"Worksheet drawing part missing: {worksheet_part} -> {drawing_part}"
+                    )
+                    continue
+                drawing_type = ct_map.get(drawing_part)
+                if drawing_type is not None and drawing_type != DRAWING_CONTENT_TYPE:
+                    result.valid = False
+                    result.errors.append(
+                        f"Drawing part content type mismatch for {drawing_part}: {drawing_type}"
+                    )
+
+                drawing_rels = _rels_part_for_part(drawing_part)
+                if drawing_rels not in names:
+                    result.valid = False
+                    result.errors.append(f"Missing drawing relationships part: {drawing_rels}")
+                    continue
+
+                drawing_rels_root = etree.fromstring(z.read(drawing_rels))
+                for drawing_rel in drawing_rels_root:
+                    if _rel_type(drawing_rel) != REL_IMAGE:
+                        continue
+                    media_part = _resolve_path(drawing_part, drawing_rel.get("Target", ""))
+                    if media_part not in names:
+                        result.valid = False
+                        result.errors.append(
+                            f"Drawing image target missing: {drawing_part} -> {media_part}"
+                        )
+                        continue
+
+                    media_ext = Path(media_part).suffix.lower()
+                    if media_ext not in SUPPORTED_MEDIA_EXTENSIONS:
+                        result.warnings.append(
+                            f"Media part uses unrecognized extension {media_ext}: {media_part}"
+                        )
+
+                    media_type = ct_map.get(media_part)
+                    if media_type is not None and media_type not in MEDIA_CONTENT_TYPES:
+                        result.valid = False
+                        result.errors.append(
+                            f"Media part content type mismatch for {media_part}: {media_type}"
+                        )
 
 
 def _resolve_path(source: str, target: str) -> str:
@@ -210,6 +379,39 @@ def _resolve_path(source: str, target: str) -> str:
         elif part and part != ".":
             resolved.append(part)
     return "/".join(resolved)
+
+
+def _rels_part_for_part(part_name: str) -> str:
+    part_path = Path(part_name)
+    return str(part_path.parent / "_rels" / f"{part_path.name}.rels").replace("\\", "/")
+
+
+def _content_type_map(zf: zipfile.ZipFile) -> dict[str, str]:
+    root = etree.fromstring(zf.read("[Content_Types].xml"))
+    defaults = {
+        child.get("Extension", "").lower(): child.get("ContentType", "")
+        for child in root
+        if child.tag.endswith("Default")
+    }
+    overrides = {
+        child.get("PartName", "").lstrip("/"): child.get("ContentType", "")
+        for child in root
+        if child.tag.endswith("Override")
+    }
+
+    content_types: dict[str, str] = {}
+    for name in zf.namelist():
+        if name in overrides:
+            content_types[name] = overrides[name]
+            continue
+        ext = Path(name).suffix.lower().lstrip(".")
+        if ext and ext in defaults:
+            content_types[name] = defaults[ext]
+    return content_types
+
+
+def _rel_type(rel: Any) -> str:
+    return rel.get("Type", "")
 
 
 def main() -> None:

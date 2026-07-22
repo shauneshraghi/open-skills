@@ -20,8 +20,6 @@ from typing import Union
 
 from docx import Document
 from docx.oxml.ns import qn
-from docx.oxml import OxmlElement
-from docx.text.paragraph import Paragraph
 from docx.text.run import Run
 from lxml import etree
 
@@ -129,14 +127,17 @@ def delete_comment(doc: Document, comment_id: int) -> bool:
                 el.getparent().remove(el)
                 found = True
 
-    # Remove the w:r that contains the w:commentReference
+    # Remove the w:commentReference marker. Only remove the wrapper run when it
+    # becomes empty so we do not discard run properties or adjacent content.
     for ref_el in list(body.iter(qn("w:commentReference"))):
         if ref_el.get(qn("w:id")) == cid:
             run_el = ref_el.getparent()
             if run_el is not None:
-                run_parent = run_el.getparent()
-                if run_parent is not None:
-                    run_parent.remove(run_el)
+                run_el.remove(ref_el)
+                if len(run_el) == 0 and (run_el.text or "").strip() == "" and (run_el.tail or "").strip() == "":
+                    run_parent = run_el.getparent()
+                    if run_parent is not None:
+                        run_parent.remove(run_el)
             found = True
 
     # Remove the w:comment element from comments.xml.

@@ -23,7 +23,6 @@ lxml boundary:
 from __future__ import annotations
 
 import argparse
-import io
 import zipfile
 from pathlib import Path
 from typing import Any, Generator
@@ -32,6 +31,8 @@ import openpyxl
 from lxml import etree
 from openpyxl import Workbook
 from openpyxl.drawing.image import Image as XLImage
+
+import create_xlsx
 
 _XDR_NS = "http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing"
 _XDR = f"{{{_XDR_NS}}}"
@@ -134,10 +135,13 @@ def replace_image_by_index(
     new_img = XLImage(str(new_path))
     new_img.anchor = old_img.anchor
     ws._images[index] = new_img
-    if alt_text is not None:
-        alts: dict[int, str] = getattr(ws, "_xlsx_skill_alt_texts", {})
-        alts[index] = alt_text
-        ws._xlsx_skill_alt_texts = alts
+    create_xlsx.set_image_metadata(
+        ws,
+        index,
+        new_path,
+        old_img.anchor,
+        alt_text=alt_text,
+    )
     return True
 
 

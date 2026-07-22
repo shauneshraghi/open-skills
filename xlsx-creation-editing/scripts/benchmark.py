@@ -12,25 +12,28 @@ from __future__ import annotations
 
 import argparse
 import os
-import tempfile
+import sys
 import time
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 ROOT = Path(__file__).resolve().parent.parent
-import sys
 sys.path.insert(0, str(ROOT))
 
-import openpyxl
 
-from scripts.create_xlsx import create_workbook, save, write_cell
-from scripts.validate_xlsx import validate_xlsx
+def _default_poi_path() -> tuple[Path, str]:
+    baseline_relative_path = Path("test-data/spreadsheet")
+    workspace_root = ROOT.parents[1]
+    return workspace_root / "poi" / baseline_relative_path, str(baseline_relative_path)
 
-POI_PATH = Path(
-    os.environ.get(
-        "POI_PATH",
-        str(Path(__file__).resolve().parents[3] / "poi" / "test-data" / "spreadsheet"),
-    )
-)
+
+def _deps() -> tuple[object, object, object, object, object]:
+    import openpyxl
+
+    from scripts.create_xlsx import create_workbook, save, write_cell
+    from scripts.validate_xlsx import validate_xlsx
+
+    return openpyxl, create_workbook, save, write_cell, validate_xlsx
 
 BENCH_FIXTURES = [
     "sample.xlsx",
@@ -47,12 +50,14 @@ BENCH_FIXTURES = [
 
 
 def _time_open(path: Path) -> float:
+    openpyxl, _, _, _, _ = _deps()
     start = time.perf_counter()
     openpyxl.load_workbook(str(path), data_only=True)
     return (time.perf_counter() - start) * 1000
 
 
 def _time_iterate(path: Path) -> float:
+    openpyxl, _, _, _, _ = _deps()
     start = time.perf_counter()
     wb = openpyxl.load_workbook(str(path), data_only=True)
     for ws in wb.worksheets:
@@ -63,18 +68,20 @@ def _time_iterate(path: Path) -> float:
 
 
 def _time_write_100() -> float:
-    tmpdir = Path(tempfile.mkdtemp())
-    start = time.perf_counter()
-    wb = create_workbook()
-    ws = wb.active
-    for r in range(1, 11):
-        for c in range(1, 11):
-            write_cell(ws, r, c, r * c)
-    save(wb, tmpdir / "bench_write.xlsx")
-    return (time.perf_counter() - start) * 1000
+    _, create_workbook, save, write_cell, _ = _deps()
+    with TemporaryDirectory() as tmpdir:
+        start = time.perf_counter()
+        wb = create_workbook()
+        ws = wb.active
+        for r in range(1, 11):
+            for c in range(1, 11):
+                write_cell(ws, r, c, r * c)
+        save(wb, Path(tmpdir) / "bench_write.xlsx")
+        return (time.perf_counter() - start) * 1000
 
 
 def _time_validate(path: Path) -> float:
+    _, _, _, _, validate_xlsx = _deps()
     start = time.perf_counter()
     validate_xlsx(path)
     return (time.perf_counter() - start) * 1000
@@ -83,10 +90,28 @@ def _time_validate(path: Path) -> float:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Benchmark xlsx-creation-editing")
     parser.add_argument("--quick", action="store_true", help="First 3 fixtures only")
+    parser.add_argument(
+        "--poi-path",
+        type=Path,
+        default=None,
+        help="Optional path to Apache POI test-data/spreadsheet",
+    )
     args = parser.parse_args()
 
-    if not POI_PATH.exists():
-        print(f"ERROR: POI_PATH not found: {POI_PATH}")
+    default_poi_path, baseline_hint = _default_poi_path()
+
+    poi_path = Path(
+        os.environ.get(
+            "POI_PATH",
+            str(args.poi_path or default_poi_path),
+        )
+    )
+
+    if not poi_path.exists():
+        print(
+            "ERROR: spreadsheet fixture path not found: "
+            f"{poi_path}. Expected Apache POI baseline under {baseline_hint}."
+        )
         sys.exit(1)
 
     fixtures = BENCH_FIXTURES[:3] if args.quick else BENCH_FIXTURES
@@ -97,7 +122,7 @@ def main() -> None:
     print("-" * len(header))
 
     for fname in fixtures:
-        path = POI_PATH / fname
+        path = poi_path / fname
         if not path.exists():
             print(f"{fname:<{col_w}}  (not found)")
             continue

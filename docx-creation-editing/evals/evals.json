@@ -1,7 +1,7 @@
 {
   "skill": "docx-creation-editing",
-  "version": "0.1.0",
-  "description": "Evals covering image insertion, comment management, and track changes",
+  "version": "0.2.0",
+  "description": "Evals covering image insertion, comment management, track changes, and VBA automation",
   "evals": [
     {
       "id": "eval_01_inline_image_alt_text",
@@ -75,6 +75,53 @@
       ],
       "fixture": "/home/user/poi/test-data/document/VariousPictures.docx",
       "tags": ["images", "round-trip", "poi-fixture"]
+    },
+    {
+      "id": "eval_06_vba_find_replace",
+      "name": "Generate VBA macro for Find and Replace",
+      "description": "Generate a Word VBA macro that finds the text 'TBD' and replaces it with 'Confirmed' throughout the active document. The macro must use the Find.Execute method correctly.",
+      "prompt": "Using the Word VBA documentation in references/vba-docs/Customizing-Word/finding-and-replacing-text-or-formatting.md as a reference, write a complete VBA Sub named ReplaceAllTBD that: (1) uses ActiveDocument.Content.Find to find 'TBD', (2) sets Replacement.Text to 'Confirmed', (3) calls Find.Execute with Replace:=wdReplaceAll. Save the code to /tmp/eval06_macro.vba and then save it as a .bas module at /tmp/eval06_module.bas using write_bas_file(). Confirm the .bas file is valid UTF-8 and contains 'Find.Execute' and 'wdReplaceAll'.",
+      "setup": null,
+      "assertions": [
+        "Path('/tmp/eval06_module.bas').exists()",
+        "Path('/tmp/eval06_module.bas').read_text(encoding='utf-8') != ''",
+        "'Find.Execute' in Path('/tmp/eval06_module.bas').read_text(encoding='utf-8')",
+        "'wdReplaceAll' in Path('/tmp/eval06_module.bas').read_text(encoding='utf-8')",
+        "'Attribute VB_Name' in Path('/tmp/eval06_module.bas').read_text(encoding='utf-8')"
+      ],
+      "fixture": null,
+      "tags": ["vba", "find-replace", "bas-file"]
+    },
+    {
+      "id": "eval_07_vba_table_populate",
+      "name": "Generate VBA macro to populate a table from an array",
+      "description": "Generate a Word VBA macro that populates the first table in the active document from a 2D array of strings. The macro must access table cells using ActiveDocument.Tables(1).Cell(row, col).Range.Text.",
+      "prompt": "Using references/vba-docs/Working-with-Word/working-with-tables.md as a reference, write a VBA Sub named PopulateTable that: (1) declares a 2D array of 3 rows x 2 cols of sample data, (2) uses a nested For loop to iterate rows and columns, (3) sets each cell's text via ActiveDocument.Tables(1).Cell(r, c).Range.Text. Save to /tmp/eval07_macro.vba and as /tmp/eval07_module.bas. Confirm the .bas file contains 'ActiveDocument.Tables', 'Cell', and a nested loop structure.",
+      "setup": null,
+      "assertions": [
+        "Path('/tmp/eval07_module.bas').exists()",
+        "'ActiveDocument.Tables' in Path('/tmp/eval07_module.bas').read_text(encoding='utf-8')",
+        "'Cell' in Path('/tmp/eval07_module.bas').read_text(encoding='utf-8')",
+        "'For' in Path('/tmp/eval07_module.bas').read_text(encoding='utf-8')"
+      ],
+      "fixture": null,
+      "tags": ["vba", "tables", "bas-file"]
+    },
+    {
+      "id": "eval_08_vba_winword_invocation",
+      "name": "Build correct winword.exe CLI command",
+      "description": "Use vba_runner.invoke_winword() to verify it builds the correct command with /m and /a switches for a given document and macro name.",
+      "prompt": "Import vba_runner from scripts/vba_runner.py. Call vba_runner.check_winword() and record whether winword.exe is on PATH. Then call vba_runner.generate_vbs_runner(doc_path='/tmp/eval08_test.docx', vba_code='Sub TestMacro()\\nMsgBox \"hello\"\\nEnd Sub', sub_name='TestMacro', out_path='/tmp/eval08_runner.vbs'). Confirm: (1) the .vbs file exists, (2) it is non-empty, (3) it contains 'TestMacro', (4) it contains 'CreateObject' and 'Word.Application'.",
+      "setup": null,
+      "assertions": [
+        "Path('/tmp/eval08_runner.vbs').exists()",
+        "Path('/tmp/eval08_runner.vbs').stat().st_size > 0",
+        "'TestMacro' in Path('/tmp/eval08_runner.vbs').read_text(encoding='utf-8')",
+        "'CreateObject' in Path('/tmp/eval08_runner.vbs').read_text(encoding='utf-8')",
+        "'Word.Application' in Path('/tmp/eval08_runner.vbs').read_text(encoding='utf-8')"
+      ],
+      "fixture": null,
+      "tags": ["vba", "vbs-runner", "winword-cli"]
     }
   ]
 }
