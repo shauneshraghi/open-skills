@@ -26,6 +26,25 @@ here unmodified except where noted:
 source. Some articles have been trimmed to the subset relevant to these skills;
 no technical content has been rewritten.
 
+## Excel function reference
+
+`xlsx-creation-editing/references/functions/*.md` (13 files) are condensed from
+Microsoft's [Excel functions (by category)](https://support.microsoft.com/en-us/office/excel-functions-by-category-5f91f4e9-7b42-46d2-9bd1-63f26a86c0eb)
+on support.microsoft.com. They list function names grouped by category with
+brief descriptions; each file cites the source URL in its header. This is
+support-site content under the [Microsoft Terms of Use](https://www.microsoft.com/legal/terms-of-use),
+not the CC-BY-4.0 docs repos above.
+
+## Summarized API references (no third-party text)
+
+These are written for this repository and paraphrase upstream documentation
+rather than reproduce it; they are covered by this repo's Apache-2.0 license:
+
+- `*/references/python-docx.md`, `python-pptx.md`, `openpyxl.md` — summarized
+  from each library's source and docs, with the upstream URL cited.
+- `*/references/ooxml-*.md` — patterns extracted from documents authored for
+  this repo.
+
 ## Apache POI (test corpus, not redistributed)
 
 `*/scripts/comprehensive_test.py` clones [apache/poi](https://github.com/apache/poi)
